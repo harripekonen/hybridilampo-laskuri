@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Älykäs Hybridilämpö – Öljykattilan pörssisähköoptimointi</title>
+    <style>
+        :root {
+            --primary: #00205b;
+            --primary-light: #1a3c7a;
+            --accent: #00c49a;
+            --accent-dark: #009675;
+            --warning: #e67e22;
+            --bg: #f3f6fa;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1240px; margin: 0 auto; }
+        .header-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 28px 32px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,32,91,0.15);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .header-card h1 { margin: 0 0 6px 0; font-size: 1.85rem; }
+        .header-card p { margin: 0; opacity: 0.9; font-size: 1rem; }
+        .status-badge {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--card);
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-top: 5px solid var(--primary);
+        }
+        .kpi-card.green { border-top-color: var(--accent); }
+        .kpi-card.orange { border-top-color: var(--warning); }
+        .kpi-card.dark { border-top-color: #334155; }
+        .kpi-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            font-weight: 700;
+        }
+        .kpi-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 6px 0 4px 0;
+        }
+        .kpi-sub { font-size: 0.85rem; color: var(--muted); }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 370px 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 960px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: var(--card);
+            padding: 26px;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+        }
+        h2, h3 {
+            color: var(--primary);
+            margin-top: 0;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+        h3 { font-size: 1.1rem; margin-top: 20px; }
+        h3:first-child { margin-top: 0; }
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 0.88rem;
+            margin-top: 12px;
+            color: #334155;
+        }
+        .val-badge { color: var(--primary); font-weight: 700; }
+        input[type="number"], select {
+            width: 100%;
+            padding: 9px 12px;
+            margin-top: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: #f8fafc;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-top: 6px;
+            accent-color: var(--primary);
+        }
+        .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+        .breakeven-pill {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.92rem;
+        }
+        .data-table th {
+            background: var(--primary);
+            color: white;
+            padding: 11px 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .data-table td {
+            padding: 11px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table tr:hover { background: #f8fafc; }
+        .bar-wrap {
+            background: #e2e8f0;
+            border-radius: 6px;
+            height: 12px;
+            width: 100%;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .bar-fill { background: var(--accent); height: 100%; }
+        .ref-box {
+            background: linear-gradient(to right, #f0fdf4, #eff6ff);
+            border: 1px solid #bbf7d0;
+            border-left: 6px solid var(--accent-dark);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        .ref-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .ref-item {
+            background: white;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .ref-item strong { display: block; color: var(--primary); font-size: 0.95rem; }
+        .ref-item span { font-size: 0.85rem; color: var(--muted); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-card">
+        <div>
+            <h1>Älykäs Hybridilämpö – Konkretia- ja Säästölaskuri</h1>
+            <p>Öljykattilan sähkövastuksen pörssisähköohjaus (toteutunut data 2021–2026)</p>
+        </div>
+        <div class="status-badge" id="dataStatusBadge">✅ Valmis (2021–2026 data ladattu)</div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">Keskimääräinen vuosisäästö</div>
+            <div class="kpi-value" id="kpiAnnualSavings">-</div>
+            <div class="kpi-sub" id="kpiTotalSavingsSub">5 v kokonaissäästö: -</div>
+        </div>
+        <div class="kpi-card orange">
+            <div class="kpi-label">Takaisinmaksuaika (270 € laitteisto)</div>
+            <div class="kpi-value" id="kpiPayback">-</div>
+            <div class="kpi-sub" id="kpiOilReplacedSub">Korvaa öljyä keskim. - % / vuosi</div>
+        </div>
+        <div class="kpi-card green">
+            <div class="kpi-label">Liikenteen päästövertailu</div>
+            <div class="kpi-value" id="kpiCars">-</div>
+            <div class="kpi-sub" id="kpiCarsSub">Polttomoottoriautoa vaihdettuna sähköautoihin</div>
+        </div>
+        <div class="kpi-card dark">
+            <div class="kpi-label">CO₂-vähennys & Öljysäästö / vuosi</div>
+            <div class="kpi-value" id="kpiCo2">-</div>
+            <div class="kpi-sub" id="kpiLitersSub">Säästetty polttoöljy: - L / vuosi</div>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <div class="card">
+            <h3>1. Kiinteistön & skaalauksen tiedot</h3>
+            <label>Vuotuinen öljynkulutus <span class="val-badge" id="lblLiters">2 200 L</span></label>
+            <input type="range" id="annualLiters" min="800" max="4500" step="100" value="2200">
+
+            <label>Asennuskanta (skaalaus, kpl koteja)</label>
+            <input type="number" id="homeScale" value="1" min="1" step="1">
+            <div class="hint">Voit testata esim. 1 kodin, 1 000 kodin tai 100 000 kodin vaikutusta.</div>
+
+            <h3>2. Polttoöljyn ja ohjauksen tila</h3>
+            <label>Öljyn hintamalli</label>
+            <select id="oilMode">
+                <option value="current">Nykyinen öljyn hintataso (vertailu)</option>
+                <option value="historical">Historiallinen toteuma (Tilastokeskus 2021–2026)</option>
+            </select>
+
+            <div id="customOilBox">
+                <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">2,01 €/l</span></label>
+                <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="2.01">
+            </div>
+
+            <label>Ohjauslogiikka</label>
+            <select id="controlMode">
+                <option value="fixed">Kiinteä spot-raja (Shelly-referenssi)</option>
+                <option value="dynamic">Automaattinen kannattavuusraja (Dynaaminen)</option>
+            </select>
+
+            <div id="fixedThresholdBox">
+                <label>Spot-kynnyshinta (snt/kWh) <span class="val-badge" id="lblThreshold">10,0 snt</span></label>
+                <input type="range" id="fixedThreshold" min="2.0" max="25.0" step="0.5" value="10.0">
+            </div>
+
+            <div class="breakeven-pill" id="breakevenInfo">Lasketaan kannattavuusrajaa...</div>
+
+            <h3>3. Tekniset oletukset</h3>
+            <label>Siirto + Sähkövero + Marginaali (snt/kWh)</label>
+            <input type="number" id="elecExtras" value="8.68" step="0.1">
+            <div class="hint">Oletus: Siirto 5,26 + Vero 2,83 + Marginaali 0,59 = 8,68 snt/kWh</div>
+
+            <label>Sähkövastuksen teho (kW)</label>
+            <input type="number" id="kwCap" value="6" min="2" max="15" step="0.5">
+
+            <label>Öljykattilan hyötysuhde (%)</label>
+            <input type="number" id="efficiency" value="85" min="65" max="98" step="1">
+
+            <label>Auton keskim. ajosuorite (km/v)</label>
+            <input type="number" id="kmPerCar" value="13200" step="200">
+            <div class="hint">Tilastokeskuksen Suomen keskiarvo: 13 200 km/v.</div>
+        </div>
+
+        <div>
+            <div class="card">
+                <h2>Vuosikohtainen analyysi (2021–2026)</h2>
+                <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
+                    Laskelma perustuu toteutuneisiin pörssisähkön tuntikeskiarvoihin sekä valittuun polttoöljyn hintamalliin.
+                </p>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Vuosi</th>
+                            <th>Öljyn hinta</th>
+                            <th>Spot-keskiarvo</th>
+                            <th>Sähkön osuus</th>
+                            <th>Öljyä säästetty</th>
+                            <th>CO₂-vähennys</th>
+                            <th>Säästö (€)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="yearlyTableBody"></tbody>
+                </table>
+
+                <div class="ref-box">
+                    <h3 style="border:none; padding:0; margin:0 0 6px 0; color:#065f46;">
+                        ✅ Kentällä todistettu referenssitoteutus (Kustannus n. 270 €)
+                    </h3>
+                    <p style="margin:0; font-size:0.92rem; color:#1e293b;">
+                        Järjestelmä on käytössä oikeassa omakotitalossa ilman kalliita pilvipalveluita tai polttimen turvaketjun muokkauksia:
+                    </p>
+                    <div class="ref-grid">
+                        <div class="ref-item">
+                            <strong>Termostaatti-ikkuna (70 °C / 80 °C)</strong>
+                            <span>Öljypolttimen termostaatti on asetettu ~70 asteeseen ja sähkövastuksen ~80 asteeseen. Kun sähkö on halpaa, vastus pitää kattilan 80 asteessa eikä poltin käynnisty.</span>
+                        </div>
+                        <div class="ref-item">
+                            <strong>Shelly Pro 3 + Tuntikeskiarvo</strong>
+                            <span>Shelly hakee pörssisähkön hinnan ja laskee kullekin tunnille keskiarvon. Tämä säästää laitteen muistia ja vähentää kontaktorin turhaa pätkimistä.</span>
+                        </div>
+                        <div class="ref-item">
+                            <strong>Automaattinen pakkasvarmistus</strong>
+                            <span>Jos kovalla pakkasella 6 kW sähkövastus ei yksin riitä ja lämpö laskee 70 asteeseen, öljypoltin käynnistyy automaattisesti avuksi.</span>
+                        </div>
+                        <div class="ref-item">
+                            <strong>Sähkökatkoturva ~160 Wh/h</strong>
+                            <span>Öljypoltin, kiertovesipumput ja ohjaus kuluttavat vain ~160 W. Jo pieni 2 kWh akku pitää talon lämpimänä 12 h sähkökatkon ajan.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Investointivertailu: Miksi älyohjaus voittaa 15 000 € remontin?</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ratkaisu</th>
+                            <th>Investointi</th>
+                            <th>Öljyn korvausaste</th>
+                            <th>Takaisinmaksuaika</th>
+                            <th>Huoltovarmuus pakkasella & sähkökatkossa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Älykäs Hybridiohjaus (Shelly Pro 3)</strong></td>
+                            <td><strong>n. 270 – 590 €</strong></td>
+                            <td id="compHybridShare">75 – 90 %</td>
+                            <td><strong style="color:var(--accent-dark);" id="compHybridPayback">2 – 6 kk</strong></td>
+                            <td>Täysi (öljy toimii varalla + kevyt 1-vaiheinen akku riittää)</td>
+                        </tr>
+                        <tr>
+                            <td>Ilmavesilämpöpumppu (VILP)</td>
+                            <td>n. 14 000 – 18 000 €</td>
+                            <td>85 – 95 %</td>
+                            <td>8 – 12 vuotta</td>
+                            <td>Heikko sähkökatkossa (vaatii 3-vaihevirran ja ison tehon)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 1. Sisäänrakennettu öljyn hintahistoria (Tilastokeskus 2021-2026)
+let oilData = {
+    "updated": "2026-10-18",
+    "current_price": 2.01,
+    "monthly": {
+        "2021": [0.86, 0.92, 0.96, 0.93, 0.97, 0.99, 1.01, 1.01, 1.03, 1.14, 1.15, 1.11],
+        "2022": [1.18, 1.29, 2.06, 1.59, 1.74, 1.95, 1.78, 1.62, 1.73, 1.93, 1.80, 1.44],
+        "2023": [1.55, 1.45, 1.45, 1.40, 1.28, 1.33, 1.35, 1.51, 1.59, 1.54, 1.48, 1.41],
+        "2024": [1.37, 1.49, 1.44, 1.47, 1.37, 1.33, 1.40, 1.32, 1.27, 1.32, 1.32, 1.29],
+        "2025": [1.33, 1.32, 1.26, 1.18, 1.15, 1.17, 1.28, 1.22, 1.23, 1.20, 1.30, 1.22],
+        "2026": [1.21, 1.27, 1.79, 2.03, 1.77, 1.67, 1.63, 1.78, 2.02, 2.01, 2.01, 2.01]
+    }
+};
+
+// 2. Sisäänrakennettu pörssisähködata 2021-2026 (tiivistetty kuukausijakauma CSV-tiedostostasi, toimii heti ilman ulkoisia tiedostoja)
+const BIN_EDGES = [2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25];
+const FALLBACK_SPOT = {"2021":{"1":[743,4720,[5,131,234,198,70,49,23,15,12,5,0,1,0,0,0],[8,434,1206,1377,591,462,237,171,150,68,0,15,0,0,0]],"2":[672,4763,[0,56,279,141,68,55,19,15,6,5,5,2,1,3,15],[0,180,1400,983,574,522,200,172,74,68,73,32,17,57,349]],"3":[743,3534,[26,298,228,111,55,14,5,2,3,0,0,0,0,1,0],[47,847,1147,765,466,131,52,23,37,0,0,0,0,19,0]],"4":[720,3280,[85,286,144,115,42,31,10,1,3,0,2,1,0,0,0],[108,789,742,799,354,292,102,12,37,0,29,16,0,0,0]],"5":[744,4239,[44,195,125,260,30,37,28,11,11,1,0,0,2,0,0],[55,586,641,1747,252,356,294,124,136,14,0,0,34,0,0]],"6":[720,5013,[32,110,206,107,33,42,70,54,50,8,4,2,1,0,1],[29,362,1009,717,282,408,734,617,620,107,59,31,17,0,22]],"7":[744,7265,[4,8,107,105,65,66,87,102,101,62,12,16,9,0,0],[2,26,574,731,555,627,915,1170,1261,832,174,250,146,0,0]],"8":[744,6294,[14,18,77,261,87,76,63,60,43,17,13,9,6,0,0],[6,57,419,1806,747,723,659,689,530,229,190,140,99,0,0]],"9":[720,7967,[0,17,40,120,58,67,77,65,43,83,56,33,20,13,27],[0,59,220,826,493,644,805,744,535,1115,810,509,332,243,607]],"10":[744,5987,[134,121,81,63,33,34,46,54,32,26,41,25,9,4,29],[155,331,413,426,278,326,485,620,398,350,595,386,150,75,652]],"11":[720,7655,[188,64,18,25,22,20,36,53,83,25,33,19,19,18,32],[268,173,94,179,185,189,382,610,1026,336,483,293,324,344,721]],"12":[744,17852,[15,28,20,8,5,15,22,34,26,26,23,30,78,57,107],[28,75,94,55,42,143,231,391,322,347,338,470,1318,1078,2451]]},"2022":{"1":[744,9830,[59,87,40,38,33,27,29,32,38,18,30,21,86,71,69],[92,227,199,263,284,256,303,370,473,243,438,326,1480,1341,1529]],"2":[672,6769,[93,74,59,49,22,26,26,42,37,50,48,40,55,16,14],[157,210,287,337,183,246,274,482,460,676,698,625,934,303,316]],"3":[743,7955,[120,75,63,84,48,40,27,27,19,49,38,14,19,14,53],[185,218,311,580,409,381,287,309,238,665,558,216,319,264,1221]],"4":[720,7082,[35,114,107,79,77,56,38,20,20,39,17,4,14,16,46],[48,351,527,555,656,527,397,228,247,531,249,62,235,308,1071]],"5":[744,12255,[66,53,27,16,10,22,18,26,42,36,33,23,59,34,124],[70,162,131,108,85,207,190,302,523,486,484,357,1001,646,2784]],"6":[720,12491,[89,84,28,16,8,11,15,15,19,15,9,7,29,65,114],[92,270,142,108,68,104,159,173,239,204,130,108,497,1229,2554]],"7":[744,17005,[76,28,21,14,4,6,4,6,17,11,14,11,25,65,163],[41,79,105,95,34,58,42,70,214,149,203,171,425,1239,3688]],"8":[744,24123,[132,58,16,16,6,8,4,2,5,5,5,1,16,20,43],[89,176,78,109,52,77,43,24,62,69,73,15,278,382,1016]],"9":[720,19164,[20,37,33,41,21,15,16,16,14,13,19,7,15,18,76],[34,124,163,282,177,145,169,182,176,174,278,108,253,342,1744]],"10":[744,10499,[187,77,26,30,5,10,19,13,21,12,23,12,44,34,91],[216,203,126,215,44,96,200,150,259,161,336,185,745,644,2033]],"11":[720,17422,[57,38,16,10,6,7,6,13,15,10,18,4,39,38,113],[27,112,76,71,51,67,63,148,187,135,265,62,662,726,2574]],"12":[744,20160,[35,50,20,20,7,5,12,14,13,13,15,13,21,26,61],[25,145,103,145,60,48,125,162,158,175,217,201,355,494,1405]]},"2023":{"1":[744,6439,[52,125,84,96,72,66,34,31,23,25,31,26,42,24,11],[39,397,417,698,613,619,358,358,289,338,449,404,709,450,247]],"2":[672,5928,[15,156,81,87,29,36,28,47,39,30,27,19,38,28,12],[23,475,399,603,245,343,294,546,484,401,392,295,642,528,258]],"3":[743,6061,[29,136,166,63,38,17,42,75,57,29,25,27,24,11,4],[21,430,799,440,324,162,444,862,714,390,363,417,404,206,85]],"4":[720,4796,[37,117,225,115,41,55,39,32,30,8,7,3,6,5,0],[24,385,1107,798,349,527,411,368,374,107,103,46,101,95,0]],"5":[744,2463,[432,78,31,61,38,40,24,14,10,7,6,2,1,0,0],[177,231,155,432,320,384,250,161,126,94,87,31,16,0,0]],"6":[720,3871,[178,127,75,169,55,28,25,18,19,4,7,4,7,2,2],[97,360,387,1178,468,264,262,207,236,54,100,63,115,39,41]],"7":[744,3045,[115,286,162,147,16,9,4,3,1,1,0,0,0,0,0],[18,892,789,1026,133,84,43,35,12,13,0,0,0,0,0]],"8":[744,6125,[196,221,32,9,4,25,8,21,32,11,16,17,30,37,48],[146,601,144,63,34,245,83,241,402,148,233,263,514,702,1042]],"9":[720,2944,[479,69,26,8,9,5,5,22,10,8,12,9,9,14,21],[256,189,131,54,78,49,54,250,125,108,174,140,150,263,488]],"10":[744,3481,[391,92,46,39,29,11,9,10,22,19,7,12,23,8,19],[135,282,231,270,247,105,96,115,275,257,102,185,382,152,434]],"11":[720,6333,[81,154,72,38,15,40,49,47,33,28,17,37,52,17,23],[-446,444,350,276,128,384,517,542,408,380,246,571,882,322,508]],"12":[744,7038,[78,113,109,60,25,41,29,42,44,36,24,18,23,44,44],[69,353,521,418,214,394,306,485,549,489,348,280,389,826,984]]},"2024":{"1":[744,9805,[40,149,66,56,35,51,48,57,40,26,23,22,29,26,29],[21,424,317,394,294,490,503,657,498,351,334,339,486,488,651]],"2":[696,4453,[134,128,111,125,37,30,11,26,18,8,9,18,14,9,14],[69,388,550,848,308,288,114,299,225,109,133,278,232,170,318]],"3":[743,5466,[34,74,182,161,77,73,43,25,25,18,13,2,12,2,2],[32,242,922,1125,656,692,450,288,309,243,187,31,203,38,46]],"4":[720,4368,[130,77,171,153,40,49,31,14,15,8,10,6,9,2,2],[41,242,878,1063,340,467,323,161,189,108,144,93,149,38,44]],"5":[744,3251,[378,113,87,36,18,6,16,12,8,8,10,4,11,9,11],[154,351,399,247,152,59,168,136,99,108,143,62,188,170,254]],"6":[720,3222,[281,154,136,32,9,9,16,5,11,14,6,9,13,5,15],[144,480,620,220,78,87,167,58,138,190,86,141,222,93,338]],"7":[744,1555,[280,415,46,2,0,0,0,0,1,0,0,0,0,0,0],[113,1213,201,15,0,0,0,0,12,0,0,0,0,0,0]],"8":[744,1166,[498,187,23,17,7,5,4,1,0,1,0,0,1,0,0],[221,526,110,118,60,47,41,11,0,14,0,0,17,0,0]],"9":[720,5063,[293,63,55,62,27,31,23,19,15,16,13,12,19,20,19],[176,178,266,434,227,295,239,219,189,214,187,186,322,377,431]],"10":[744,3802,[422,111,46,19,9,5,15,1,11,9,3,9,16,22,7],[169,328,223,127,76,47,158,12,139,121,43,139,271,419,146]],"11":[720,4096,[293,80,71,56,34,21,27,29,19,7,13,7,18,21,21],[154,243,355,382,289,201,283,334,235,95,189,109,305,398,447]],"12":[744,3623,[379,79,82,61,25,14,13,10,7,8,3,6,10,6,17],[207,239,398,427,211,133,134,116,88,106,44,93,170,115,374]]},"2
