@@ -234,11 +234,11 @@
             <h3>2. Polttoöljyn ja ohjauksen tila</h3>
             <label>Öljyn hintamalli</label>
             <select id="oilMode">
-                <option value="current">Nykyinen öljyn hintataso (vertailu)</option>
-                <option value="historical">Historiallinen toteuma (Tilastokeskus 2021–2026)</option>
+                <option value="historical" selected>Historiallinen toteuma (Tilastokeskus 2021–2026)</option>
+                <option value="current">Kiinteä öljyn hinta (Nykyinen / Valittu)</option>
             </select>
 
-            <div id="customOilBox">
+            <div id="customOilBox" style="display:none;">
                 <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">2,01 €/l</span></label>
                 <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="2.01">
             </div>
@@ -276,14 +276,14 @@
             <div class="card">
                 <h2>Vuosikohtainen analyysi (2021–2026)</h2>
                 <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                    Laskelma perustuu toteutuneisiin pörssisähkön tuntikeskiarvoihin sekä valittuun polttoöljyn hintamalliin.
+                    Laskelma perustuu toteutuneisiin pörssisähkön tuntikeskiarvoihin sekä kuukausikohtaiseen polttoöljyn hintahistoriaan.
                 </p>
 
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Vuosi</th>
-                            <th>Öljyn hinta</th>
+                            <th>Öljyn keskihinta</th>
                             <th>Spot-keskiarvo</th>
                             <th>Sähkön osuus</th>
                             <th>Öljyä säästetty</th>
@@ -424,13 +424,19 @@ function runSimulation() {
     document.getElementById('customOilBox').style.display = oilMode === 'current' ? 'block' : 'none';
     document.getElementById('fixedThresholdBox').style.display = controlMode === 'fixed' ? 'block' : 'none';
 
-    const refOilPrice = oilMode === 'current' ? customOil : (oilData.current_price || 2.01);
-    const oilKwhCostCents = (refOilPrice * 100) / (10 * eff);
+    // Asetetaan selitys ja kannattavuusraja sen mukaan, käytetäänkö historiallista vai kiinteää hintaa
+    let sampleOilPrice = customOil;
+    if (oilMode === 'historical') {
+        // Näytetään viitteenä viimeisin / vuoden 2025 keskihinta tai vuodelle 2026
+        sampleOilPrice = 2.01; 
+    }
+    const oilKwhCostCents = (sampleOilPrice * 100) / (10 * eff);
     const breakEvenSpot = oilKwhCostCents - pAdd;
+    
     document.getElementById('breakevenInfo').innerHTML =
-        `<strong>Kannattavuusraja (${refOilPrice.toFixed(2).replace('.', ',')} €/l öljyllä):</strong><br>` +
-        `Öljylämpö maksaa <strong>${oilKwhCostCents.toFixed(2).replace('.', ',')} snt/kWh</strong>. ` +
-        `Sähkövastus on öljyä halvempi aina, kun spot-hinta on alle <strong>${breakEvenSpot.toFixed(2).replace('.', ',')} snt/kWh</strong>.`;
+        oilMode === 'historical'
+        ? `<strong>Hintamalli:</strong> Käytetään Tilastokeskuksen kuukausikohtaista historiallista öljynhintaa (2021–2026).`
+        : `<strong>Kiinteä öljynhinta (${sampleOilPrice.toFixed(2).replace('.', ',')} €/l):</strong> Öljylämpö maksaa <strong>${oilKwhCostCents.toFixed(2).replace('.', ',')} snt/kWh</strong>. Sähkövastus on halvempi, kun spot on alle <strong>${breakEvenSpot.toFixed(2).replace('.', ',')} snt/kWh</strong>.`;
 
     const totalEnergy = qOil * 10 * eff;
     const waterE = totalEnergy * 0.20;
@@ -451,97 +457,4 @@ function runSimulation() {
 
         for (let m = 0; m < 12; m++) {
             const mHours = mDays[m] * 24;
-            const monthOilEur = oilMode === 'current' ? customOil : mOilPrices[m];
-            const monthOilCentsPerKwh = (monthOilEur * 100) / (10 * eff);
-            const activeThresh = controlMode === 'fixed' ? fixedThresh : (monthOilCentsPerKwh - pAdd);
-            const ePerHour = (waterE / totalYearHours) + ((heatE * monthlyWeights[m]) / mHours);
-            const fromElec = Math.min(ePerHour, kwCap);
-
-            const mEntry = FALLBACK_SPOT[String(year)] && FALLBACK_SPOT[String(year)][String(m + 1)];
-            if (!mEntry) continue;
-            const { nTot, sTot, hAcc, sAcc } = evalBinnedMonth(mEntry, activeThresh);
-            yearSpotSum += sTot;
-            yearHoursCount += nTot;
-            const totMonthLiters = (nTot * ePerHour) / (10 * eff);
-            yearBaselineCost += totMonthLiters * monthOilEur;
-
-            yearElecCostEur += (fromElec * (sAcc + hAcc * pAdd)) / 100.0;
-            const remLiters = (hAcc * (ePerHour - fromElec) + (nTot - hAcc) * ePerHour) / (10 * eff);
-            yearNewOilLiters += remLiters;
-            yearNewOilCost += remLiters * monthOilEur;
-        }
-
-        if (yearHoursCount === 0) continue;
-
-        const yearFraction = yearHoursCount / totalYearHours;
-        const expectedOilLiters = (yearBaselineCost > 0) ? (qOil * yearFraction) : 0;
-        const oilSaved = expectedOilLiters - yearNewOilLiters;
-        const co2SavedKg = oilSaved * CO2_PER_LITRE;
-        const savingsEur = yearBaselineCost - (yearNewOilCost + yearElecCostEur);
-        const avgSpot = yearSpotSum / yearHoursCount;
-        const avgOilShown = oilMode === 'current' ? customOil : (mOilPrices.reduce((a, b) => a + b, 0) / 12);
-        const elecSharePct = expectedOilLiters > 0 ? (oilSaved / expectedOilLiters) * 100 : 0;
-
-        if (year <= 2025 || yearFraction > 0.8) {
-            sumSavings += savingsEur;
-            sumOilSaved += oilSaved;
-            sumCo2 += co2SavedKg;
-            fullYearsCount += yearFraction;
-        }
-
-        const yearLabel = yearFraction < 0.95 ? `${year} (alkuvuosi)` : `${year}`;
-        tbody.innerHTML += `
-            <tr>
-                <td><strong>${yearLabel}</strong></td>
-                <td>${avgOilShown.toFixed(2).replace('.', ',')} €/l</td>
-                <td>${avgSpot.toFixed(2).replace('.', ',')} snt</td>
-                <td>
-                    ${elecSharePct.toFixed(0)} %
-                    <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(100, Math.max(0, elecSharePct))}%"></div></div>
-                </td>
-                <td>${Math.round(oilSaved * scale).toLocaleString('fi-FI')} L</td>
-                <td>${Math.round(co2SavedKg * scale).toLocaleString('fi-FI')} kg</td>
-                <td><strong style="color:var(--primary);">${Math.round(savingsEur * scale).toLocaleString('fi-FI')} €</strong></td>
-            </tr>
-        `;
-    }
-
-    const avgAnnualSavingsPerHome = sumSavings / fullYearsCount;
-    const avgAnnualOilSavedPerHome = sumOilSaved / fullYearsCount;
-    const avgAnnualCo2PerHome = sumCo2 / fullYearsCount;
-
-    const scaledAnnualSavings = avgAnnualSavingsPerHome * scale;
-    const scaledTotalSavings = sumSavings * scale;
-    const scaledAnnualCo2Tons = (avgAnnualCo2PerHome * scale) / 1000.0;
-    const scaledAnnualOilSaved = avgAnnualOilSavedPerHome * scale;
-
-    const paybackMonths = avgAnnualSavingsPerHome > 0 ? Math.max(1, (270 / avgAnnualSavingsPerHome) * 12) : 0;
-    const oilReplacedPct = (avgAnnualOilSavedPerHome / qOil) * 100;
-
-    const co2PerCarAnnual = kmPerCar * CO2_ICE_VS_EV_PER_KM;
-    const carsEquivalent = (avgAnnualCo2PerHome * scale) / co2PerCarAnnual;
-
-    document.getElementById('kpiAnnualSavings').innerText = Math.round(scaledAnnualSavings).toLocaleString('fi-FI') + " € / v";
-    document.getElementById('kpiTotalSavingsSub').innerText = `Tarkastelujakson kertymä (${scale.toLocaleString('fi-FI')} koti${scale > 1 ? 'a' : ''}): ${Math.round(scaledTotalSavings).toLocaleString('fi-FI')} €`;
-    document.getElementById('kpiPayback').innerText = paybackMonths < 12
-        ? `${paybackMonths.toFixed(1).replace('.', ',')} kk`
-        : `${(paybackMonths / 12).toFixed(1).replace('.', ',')} v`;
-    document.getElementById('kpiOilReplacedSub').innerText = `Korvaa öljyä keskim. ${oilReplacedPct.toFixed(0)} % vuodessa`;
-    document.getElementById('kpiCars').innerText = (scale === 1 ? carsEquivalent.toFixed(1).replace('.', ',') : Math.round(carsEquivalent).toLocaleString('fi-FI')) + " autoa";
-    document.getElementById('kpiCarsSub').innerText = `Vastaa ${(avgAnnualCo2PerHome / co2PerCarAnnual).toFixed(1).replace('.', ',')} sähköautoa / talous (${kmPerCar.toLocaleString('fi-FI')} km/v)`;
-    document.getElementById('kpiCo2').innerText = scaledAnnualCo2Tons.toFixed(1).replace('.', ',') + " t CO₂ / v";
-    document.getElementById('kpiLitersSub').innerText = `Säästetty polttoöljy: ${Math.round(scaledAnnualOilSaved).toLocaleString('fi-FI')} L / vuosi`;
-
-    document.getElementById('compHybridShare').innerText = `${oilReplacedPct.toFixed(0)} %`;
-    document.getElementById('compHybridPayback').innerText = `${paybackMonths.toFixed(1).replace('.', ',')} kuukautta`;
-}
-
-document.querySelectorAll('input, select').forEach(el => {
-    el.addEventListener('input', runSimulation);
-    el.addEventListener('change', runSimulation);
-});
-
-initData();
-</script>
-</body>
-</html>
+            // TÄRKEÄ KORJAUS: Jos til
