@@ -74,7 +74,7 @@
             font-weight: 700;
         }
         .kpi-value {
-            font-size: 2.2rem;
+            font-size: 2.1rem;
             font-weight: 800;
             color: var(--primary);
             margin: 6px 0 4px 0;
@@ -193,16 +193,16 @@
     <div class="header-card">
         <div>
             <h1>Älykäs Hybridilämpö – Konkretia- ja Säästölaskuri</h1>
-            <p>Öljykattilan sähkövastuksen pörssisähköohjaus (toteutunut data 2021–2026)</p>
+            <p>Öljykattilan sähkövastuksen pörssisähköohjaus (toteutunut kuukausikohtainen öljy- ja spot-data 2021–2026)</p>
         </div>
         <div class="status-badge" id="dataStatusBadge">✅ Valmis (2021–2026 data ladattu)</div>
     </div>
 
     <div class="kpi-grid">
         <div class="kpi-card">
-            <div class="kpi-label">Keskimääräinen vuosisäästö</div>
+            <div class="kpi-label" id="kpiSavingsTitle">Toteutunut säästö (historiallinen öljynhinta)</div>
             <div class="kpi-value" id="kpiAnnualSavings">-</div>
-            <div class="kpi-sub" id="kpiTotalSavingsSub">5 v kokonaissäästö: -</div>
+            <div class="kpi-sub" id="kpiTotalSavingsSub">Jakson kokonaissäästö: -</div>
         </div>
         <div class="kpi-card orange">
             <div class="kpi-label">Takaisinmaksuaika (270 € laitteisto)</div>
@@ -235,7 +235,7 @@
             <label>Öljyn hintamalli</label>
             <select id="oilMode">
                 <option value="historical" selected>Historiallinen toteuma (Tilastokeskus 2021–2026)</option>
-                <option value="current">Kiinteä öljyn hinta (Nykyinen / Valittu)</option>
+                <option value="current">Kiinteä öljyn hinta (Nykyhinnan simulointi)</option>
             </select>
 
             <div id="customOilBox" style="display:none;">
@@ -245,13 +245,15 @@
 
             <label>Ohjauslogiikka</label>
             <select id="controlMode">
-                <option value="fixed">Kiinteä spot-raja (Shelly-referenssi)</option>
-                <option value="dynamic">Automaattinen kannattavuusraja (Dynaaminen)</option>
+                <option value="smart_fixed" selected>Shelly-referenssi (Spot-raja + kannattavuusleikkuri)</option>
+                <option value="dynamic">Täysin dynaaminen kannattavuusraja</option>
+                <option value="raw_fixed">Kiinteä spot-raja (ilman öljyn hintaleikkuria)</option>
             </select>
 
             <div id="fixedThresholdBox">
                 <label>Spot-kynnyshinta (snt/kWh) <span class="val-badge" id="lblThreshold">10,0 snt</span></label>
                 <input type="range" id="fixedThreshold" min="2.0" max="25.0" step="0.5" value="10.0">
+                <div class="hint">Shelly-referenssi käyttää tätä rajaa, mutta ei koskaan ylitä kyseisen kuukauden öljyn kannattavuusrajaa.</div>
             </div>
 
             <div class="breakeven-pill" id="breakevenInfo">Lasketaan kannattavuusrajaa...</div>
@@ -276,15 +278,16 @@
             <div class="card">
                 <h2>Vuosikohtainen analyysi (2021–2026)</h2>
                 <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                    Laskelma perustuu toteutuneisiin pörssisähkön tuntikeskiarvoihin sekä kuukausikohtaiseen polttoöljyn hintahistoriaan.
+                    Taulukossa kukin kuukausi on laskettu kyseisen ajankohdan todellisella pörssisähkön tuntihinnalla ja valitulla öljyn hintamallilla.
                 </p>
 
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Vuosi</th>
-                            <th>Öljyn keskihinta</th>
+                            <th>Öljyn hinta</th>
                             <th>Spot-keskiarvo</th>
+                            <th>Kannattavuusraja</th>
                             <th>Sähkön osuus</th>
                             <th>Öljyä säästetty</th>
                             <th>CO₂-vähennys</th>
@@ -338,7 +341,7 @@
                         <tr>
                             <td><strong>Älykäs Hybridiohjaus (Shelly Pro 3)</strong></td>
                             <td><strong>n. 270 – 590 €</strong></td>
-                            <td id="compHybridShare">75 – 90 %</td>
+                            <td id="compHybridShare">60 – 80 %</td>
                             <td><strong style="color:var(--accent-dark);" id="compHybridPayback">2 – 6 kk</strong></td>
                             <td>Täysi (öljy toimii varalla + kevyt 1-vaiheinen akku riittää)</td>
                         </tr>
@@ -373,6 +376,7 @@ let oilData = {
 const BIN_EDGES = [2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25];
 const FALLBACK_SPOT = {"2021":{"1":[743,4720,[5,131,234,198,70,49,23,15,12,5,0,1,0,0,0],[8,434,1206,1377,591,462,237,171,150,68,0,15,0,0,0]],"2":[672,4763,[0,56,279,141,68,55,19,15,6,5,5,2,1,3,15],[0,180,1400,983,574,522,200,172,74,68,73,32,17,57,349]],"3":[743,3534,[26,298,228,111,55,14,5,2,3,0,0,0,0,1,0],[47,847,1147,765,466,131,52,23,37,0,0,0,0,19,0]],"4":[720,3280,[85,286,144,115,42,31,10,1,3,0,2,1,0,0,0],[108,789,742,799,354,292,102,12,37,0,29,16,0,0,0]],"5":[744,4239,[44,195,125,260,30,37,28,11,11,1,0,0,2,0,0],[55,586,641,1747,252,356,294,124,136,14,0,0,34,0,0]],"6":[720,5013,[32,110,206,107,33,42,70,54,50,8,4,2,1,0,1],[29,362,1009,717,282,408,734,617,620,107,59,31,17,0,22]],"7":[744,7265,[4,8,107,105,65,66,87,102,101,62,12,16,9,0,0],[2,26,574,731,555,627,915,1170,1261,832,174,250,146,0,0]],"8":[744,6294,[14,18,77,261,87,76,63,60,43,17,13,9,6,0,0],[6,57,419,1806,747,723,659,689,530,229,190,140,99,0,0]],"9":[720,7967,[0,17,40,120,58,67,77,65,43,83,56,33,20,13,27],[0,59,220,826,493,644,805,744,535,1115,810,509,332,243,607]],"10":[744,5987,[134,121,81,63,33,34,46,54,32,26,41,25,9,4,29],[155,331,413,426,278,326,485,620,398,350,595,386,150,75,652]],"11":[720,7655,[188,64,18,25,22,20,36,53,83,25,33,19,19,18,32],[268,173,94,179,185,189,382,610,1026,336,483,293,324,344,721]],"12":[744,17852,[15,28,20,8,5,15,22,34,26,26,23,30,78,57,107],[28,75,94,55,42,143,231,391,322,347,338,470,1318,1078,2451]]},"2022":{"1":[744,9830,[59,87,40,38,33,27,29,32,38,18,30,21,86,71,69],[92,227,199,263,284,256,303,370,473,243,438,326,1480,1341,1529]],"2":[672,6769,[93,74,59,49,22,26,26,42,37,50,48,40,55,16,14],[157,210,287,337,183,246,274,482,460,676,698,625,934,303,316]],"3":[743,7955,[120,75,63,84,48,40,27,27,19,49,38,14,19,14,53],[185,218,311,580,409,381,287,309,238,665,558,216,319,264,1221]],"4":[720,7082,[35,114,107,79,77,56,38,20,20,39,17,4,14,16,46],[48,351,527,555,656,527,397,228,247,531,249,62,235,308,1071]],"5":[744,12255,[66,53,27,16,10,22,18,26,42,36,33,23,59,34,124],[70,162,131,108,85,207,190,302,523,486,484,357,1001,646,2784]],"6":[720,12491,[89,84,28,16,8,11,15,15,19,15,9,7,29,65,114],[92,270,142,108,68,104,159,173,239,204,130,108,497,1229,2554]],"7":[744,17005,[76,28,21,14,4,6,4,6,17,11,14,11,25,65,163],[41,79,105,95,34,58,42,70,214,149,203,171,425,1239,3688]],"8":[744,24123,[132,58,16,16,6,8,4,2,5,5,5,1,16,20,43],[89,176,78,109,52,77,43,24,62,69,73,15,278,382,1016]],"9":[720,19164,[20,37,33,41,21,15,16,16,14,13,19,7,15,18,76],[34,124,163,282,177,145,169,182,176,174,278,108,253,342,1744]],"10":[744,10499,[187,77,26,30,5,10,19,13,21,12,23,12,44,34,91],[216,203,126,215,44,96,200,150,259,161,336,185,745,644,2033]],"11":[720,17422,[57,38,16,10,6,7,6,13,15,10,18,4,39,38,113],[27,112,76,71,51,67,63,148,187,135,265,62,662,726,2574]],"12":[744,20160,[35,50,20,20,7,5,12,14,13,13,15,13,21,26,61],[25,145,103,145,60,48,125,162,158,175,217,201,355,494,1405]]},"2023":{"1":[744,6439,[52,125,84,96,72,66,34,31,23,25,31,26,42,24,11],[39,397,417,698,613,619,358,358,289,338,449,404,709,450,247]],"2":[672,5928,[15,156,81,87,29,36,28,47,39,30,27,19,38,28,12],[23,475,399,603,245,343,294,546,484,401,392,295,642,528,258]],"3":[743,6061,[29,136,166,63,38,17,42,75,57,29,25,27,24,11,4],[21,430,799,440,324,162,444,862,714,390,363,417,404,206,85]],"4":[720,4796,[37,117,225,115,41,55,39,32,30,8,7,3,6,5,0],[24,385,1107,798,349,527,411,368,374,107,103,46,101,95,0]],"5":[744,2463,[432,78,31,61,38,40,24,14,10,7,6,2,1,0,0],[177,231,155,432,320,384,250,161,126,94,87,31,16,0,0]],"6":[720,3871,[178,127,75,169,55,28,25,18,19,4,7,4,7,2,2],[97,360,387,1178,468,264,262,207,236,54,100,63,115,39,41]],"7":[744,3045,[115,286,162,147,16,9,4,3,1,1,0,0,0,0,0],[18,892,789,1026,133,84,43,35,12,13,0,0,0,0,0]],"8":[744,6125,[196,221,32,9,4,25,8,21,32,11,16,17,30,37,48],[146,601,144,63,34,245,83,241,402,148,233,263,514,702,1042]],"9":[720,2944,[479,69,26,8,9,5,5,22,10,8,12,9,9,14,21],[256,189,131,54,78,49,54,250,125,108,174,140,150,263,488]],"10":[744,3481,[391,92,46,39,29,11,9,10,22,19,7,12,23,8,19],[135,282,231,270,247,105,96,115,275,257,102,185,382,152,434]],"11":[720,6333,[81,154,72,38,15,40,49,47,33,28,17,37,52,17,23],[-446,444,350,276,128,384,517,542,408,380,246,571,882,322,508]],"12":[744,7038,[78,113,109,60,25,41,29,42,44,36,24,18,23,44,44],[69,353,521,418,214,394,306,485,549,489,348,280,389,826,984]]},"2024":{"1":[744,9805,[40,149,66,56,35,51,48,57,40,26,23,22,29,26,29],[21,424,317,394,294,490,503,657,498,351,334,339,486,488,651]],"2":[696,4453,[134,128,111,125,37,30,11,26,18,8,9,18,14,9,14],[69,388,550,848,308,288,114,299,225,109,133,278,232,170,318]],"3":[743,5466,[34,74,182,161,77,73,43,25,25,18,13,2,12,2,2],[32,242,922,1125,656,692,450,288,309,243,187,31,203,38,46]],"4":[720,4368,[130,77,171,153,40,49,31,14,15,8,10,6,9,2,2],[41,242,878,1063,340,467,323,161,189,108,144,93,149,38,44]],"5":[744,3251,[378,113,87,36,18,6,16,12,8,8,10,4,11,9,11],[154,351,399,247,152,59,168,136,99,108,143,62,188,170,254]],"6":[720,3222,[281,154,136,32,9,9,16,5,11,14,6,9,13,5,15],[144,480,620,220,78,87,167,58,138,190,86,141,222,93,338]],"7":[744,1555,[280,415,46,2,0,0,0,0,1,0,0,0,0,0,0],[113,1213,201,15,0,0,0,0,12,0,0,0,0,0,0]],"8":[744,1166,[498,187,23,17,7,5,4,1,0,1,0,0,1,0,0],[221,526,110,118,60,47,41,11,0,14,0,0,17,0,0]],"9":[720,5063,[293,63,55,62,27,31,23,19,15,16,13,12,19,20,19],[176,178,266,434,227,295,239,219,189,214,187,186,322,377,431]],"10":[744,3802,[422,111,46,19,9,5,15,1,11,9,3,9,16,22,7],[169,328,223,127,76,47,158,12,139,121,43,139,271,419,146]],"11":[720,4096,[293,80,71,56,34,21,27,29,19,7,13,7,18,21,21],[154,243,355,382,289,201,283,334,235,95,189,109,305,398,447]],"12":[744,3623,[379,79,82,61,25,14,13,10,7,8,3,6,10,6,17],[207,239,398,427,211,133,134,116,88,106,44,93,170,115,374]]},"2025":{"1":[744,4932,[244,89,93,58,30,20,24,31,26,31,7,22,28,15,16],[128,275,459,399,257,191,251,357,327,416,101,341,474,282,347]],"2":[672,3985,[300,84,61,32,10,12,13,11,17,23,16,29,23,12,13],[187,245,303,221,86,114,136,128,213,312,231,447,386,230,277]],"3":[743,4429,[399,43,44,31,8,12,20,16,25,18,14,13,37,16,22],[168,126,218,214,69,114,208,183,315,243,203,202,620,304,497]],"4":[720,4313,[374,62,54,43,18,6,23,7,13,9,10,11,21,13,20],[178,192,263,298,151,57,241,80,163,123,145,171,352,250,452]],"5":[744,1709,[541,51,49,35,11,8,7,12,6,4,5,4,3,8,0],[236,151,239,238,93,75,73,138,76,54,71,63,51,151,0]],"6":[720,1685,[564,38,20,15,19,12,11,0,8,1,2,2,8,4,7],[163,118,96,97,163,114,115,0,101,13,29,31,140,76,157]],"7":[744,2255,[339,208,102,50,11,10,7,5,5,2,1,3,1,0,0],[326,596,507,343,92,94,72,57,62,26,14,47,17,0,0]],"8":[744,5157,[321,40,40,33,29,34,44,34,35,21,21,18,15,18,19],[147,119,194,225,246,322,460,392,438,283,303,275,257,339,422]],"9":[720,3777,[345,81,49,37,30,27,36,22,25,11,3,13,8,10,11],[238,234,248,256,256,257,379,253,313,149,44,199,136,186,245]],"10":[744,4575,[329,69,47,52,37,24,30,27,26,15,17,8,13,9,21],[201,202,237,372,315,228,315,312,326,203,244,122,221,172,459]],"11":[720,4335,[286,84,69,39,31,24,35,29,26,13,10,13,20,13,22],[222,244,344,265,263,228,368,332,325,176,144,201,336,245,479]],"12":[744,3354,[293,163,75,49,25,45,13,19,16,4,4,2,20,11,5],[167,505,355,341,212,426,135,216,200,53,57,31,342,210,105]]},"2026":{"1":[385,4252,[6,18,40,52,21,30,31,35,34,21,16,23,26,13,13],[8,59,203,366,176,287,324,403,422,283,231,355,441,247,286]]}};
 
+let spotHourlyPrices = [];
 const CO2_PER_LITRE = 2.68;
 const CO2_ICE_VS_EV_PER_KM = 0.144;
 const monthlyWeights = [0.17, 0.15, 0.14, 0.08, 0.04, 0.01, 0.01, 0.01, 0.04, 0.08, 0.13, 0.14];
@@ -402,8 +406,28 @@ function evalBinnedMonth(mEntry, thresh) {
     return { nTot, sTot, hAcc, sAcc };
 }
 
-function initData() {
+async function initData() {
     runSimulation();
+    const badge = document.getElementById('dataStatusBadge');
+    try {
+        const [oilRes, spotRes] = await Promise.all([
+            fetch('oljy_hinnat.json'),
+            fetch('spot_tuntihinnat.json')
+        ]);
+        if (oilRes.ok) {
+            oilData = await oilRes.json();
+        }
+        if (spotRes.ok) {
+            const spotJson = await spotRes.json();
+            if (spotJson.prices && spotJson.prices.length > 8000) {
+                spotHourlyPrices = spotJson.prices;
+                badge.innerText = `✅ Live-data (${spotJson.updated || oilData.updated || '2021–2026'})`;
+            }
+        }
+        runSimulation();
+    } catch (err) {
+        // Käytetään sisäänrakennettua 2021-2026 dataa
+    }
 }
 
 function runSimulation() {
@@ -422,39 +446,191 @@ function runSimulation() {
     document.getElementById('lblOilPrice').innerText = customOil.toFixed(2).replace('.', ',') + " €/l";
     document.getElementById('lblThreshold').innerText = fixedThresh.toFixed(1).replace('.', ',') + " snt";
     document.getElementById('customOilBox').style.display = oilMode === 'current' ? 'block' : 'none';
-    document.getElementById('fixedThresholdBox').style.display = controlMode === 'fixed' ? 'block' : 'none';
+    document.getElementById('fixedThresholdBox').style.display = controlMode === 'dynamic' ? 'none' : 'block';
 
-    // Asetetaan selitys ja kannattavuusraja sen mukaan, käytetäänkö historiallista vai kiinteää hintaa
-    let sampleOilPrice = customOil;
-    if (oilMode === 'historical') {
-        // Näytetään viitteenä viimeisin / vuoden 2025 keskihinta tai vuodelle 2026
-        sampleOilPrice = 2.01; 
-    }
-    const oilKwhCostCents = (sampleOilPrice * 100) / (10 * eff);
-    const breakEvenSpot = oilKwhCostCents - pAdd;
-    
+    const currentOilRef = oilMode === 'current' ? customOil : (oilData.current_price || 2.01);
+    const currentOilKwhCents = (currentOilRef * 100) / (10 * eff);
+    const currentBreakEvenSpot = currentOilKwhCents - pAdd;
+
     document.getElementById('breakevenInfo').innerHTML =
         oilMode === 'historical'
-        ? `<strong>Hintamalli:</strong> Käytetään Tilastokeskuksen kuukausikohtaista historiallista öljynhintaa (2021–2026).`
-        : `<strong>Kiinteä öljynhinta (${sampleOilPrice.toFixed(2).replace('.', ',')} €/l):</strong> Öljylämpö maksaa <strong>${oilKwhCostCents.toFixed(2).replace('.', ',')} snt/kWh</strong>. Sähkövastus on halvempi, kun spot on alle <strong>${breakEvenSpot.toFixed(2).replace('.', ',')} snt/kWh</strong>.`;
+        ? `<strong>Historiallinen öljyn hintamalli (Tilastokeskus):</strong><br>` +
+          `Jokainen kuukausi (2021–2026) lasketaan sen hetkisellä todellisella öljyn hinnalla (0,86–2,06 €/l). ` +
+          `Nykyhinnalla (${currentOilRef.toFixed(2).replace('.', ',')} €/l) kannattavuusraja on <strong>${currentBreakEvenSpot.toFixed(1).replace('.', ',')} snt/kWh</strong>.`
+        : `<strong>Kiinteä öljynhinta (${customOil.toFixed(2).replace('.', ',')} €/l):</strong><br>` +
+          `Öljylämpö maksaa <strong>${currentOilKwhCents.toFixed(2).replace('.', ',')} snt/kWh</strong>. ` +
+          `Sähkövastus on halvempi, kun spot on alle <strong>${currentBreakEvenSpot.toFixed(2).replace('.', ',')} snt/kWh</strong>.`;
 
     const totalEnergy = qOil * 10 * eff;
     const waterE = totalEnergy * 0.20;
     const heatE = totalEnergy * 0.80;
 
+    let ptr = 0;
+    const useFullHourly = spotHourlyPrices.length > 8000;
     const tbody = document.getElementById('yearlyTableBody');
     tbody.innerHTML = "";
 
-    let sumSavings = 0, sumOilSaved = 0, sumCo2 = 0, fullYearsCount = 0;
+    let sumSavings = 0, sumModernSavings = 0, sumOilSaved = 0, sumCo2 = 0, weightedYears = 0;
 
     for (let year = 2021; year <= 2026; year++) {
         const mDays = daysInMonth(year);
         const totalYearHours = mDays.reduce((a, b) => a + b, 0) * 24;
         const mOilPrices = oilData.monthly[String(year)] || Array(12).fill(customOil);
 
-        let yearBaselineCost = 0, yearNewOilCost = 0, yearNewOilLiters = 0, yearElecCostEur = 0;
+        let yearBaselineCost = 0, yearBaselineLiters = 0;
+        let yearNewOilCost = 0, yearNewOilLiters = 0, yearElecCostEur = 0;
         let yearSpotSum = 0, yearHoursCount = 0;
+        let yearModernSavings = 0;
 
         for (let m = 0; m < 12; m++) {
             const mHours = mDays[m] * 24;
-            // TÄRKEÄ KORJAUS: Jos til
+            const monthOilEur = oilMode === 'historical' ? mOilPrices[m] : customOil;
+            const monthOilCentsPerKwh = (monthOilEur * 100) / (10 * eff);
+            const monthBreakEven = monthOilCentsPerKwh - pAdd;
+
+            let activeThresh = fixedThresh;
+            if (controlMode === 'dynamic') {
+                activeThresh = monthBreakEven;
+            } else if (controlMode === 'smart_fixed') {
+                activeThresh = Math.min(fixedThresh, monthBreakEven);
+            }
+
+            const ePerHour = (waterE / totalYearHours) + ((heatE * monthlyWeights[m]) / mHours);
+            const fromElec = Math.min(ePerHour, kwCap);
+
+            if (useFullHourly) {
+                if (ptr >= spotHourlyPrices.length) break;
+                for (let h = 0; h < mHours; h++) {
+                    if (ptr >= spotHourlyPrices.length) break;
+                    const spot = spotHourlyPrices[ptr++];
+                    yearSpotSum += spot;
+                    yearHoursCount++;
+                    const hourLiters = ePerHour / (10 * eff);
+                    yearBaselineLiters += hourLiters;
+                    yearBaselineCost += hourLiters * monthOilEur;
+
+                    if (spot <= activeThresh) {
+                        const eCost = (fromElec * (spot + pAdd)) / 100.0;
+                        yearElecCostEur += eCost;
+                        const remLiters = (ePerHour - fromElec) / (10 * eff);
+                        yearNewOilLiters += remLiters;
+                        yearNewOilCost += remLiters * monthOilEur;
+                    } else {
+                        yearNewOilLiters += hourLiters;
+                        yearNewOilCost += hourLiters * monthOilEur;
+                    }
+
+                    // Lasketaan vertailuna myös mitä tämä tunti säästäisi nykyisellä (2.01 €/l) öljynhinnalla
+                    const modThresh = controlMode === 'dynamic' ? currentBreakEvenSpot : Math.min(fixedThresh, currentBreakEvenSpot);
+                    if (spot <= modThresh) {
+                        const modElecEur = (fromElec * (spot + pAdd)) / 100.0;
+                        const modSavedLiters = fromElec / (10 * eff);
+                        yearModernSavings += (modSavedLiters * currentOilRef) - modElecEur;
+                    }
+                }
+            } else {
+                const mEntry = FALLBACK_SPOT[String(year)] && FALLBACK_SPOT[String(year)][String(m + 1)];
+                if (!mEntry) continue;
+                const { nTot, sTot, hAcc, sAcc } = evalBinnedMonth(mEntry, activeThresh);
+                yearSpotSum += sTot;
+                yearHoursCount += nTot;
+                const totMonthLiters = (nTot * ePerHour) / (10 * eff);
+                yearBaselineLiters += totMonthLiters;
+                yearBaselineCost += totMonthLiters * monthOilEur;
+
+                yearElecCostEur += (fromElec * (sAcc + hAcc * pAdd)) / 100.0;
+                const remLiters = (hAcc * (ePerHour - fromElec) + (nTot - hAcc) * ePerHour) / (10 * eff);
+                yearNewOilLiters += remLiters;
+                yearNewOilCost += remLiters * monthOilEur;
+
+                const modThresh = controlMode === 'dynamic' ? currentBreakEvenSpot : Math.min(fixedThresh, currentBreakEvenSpot);
+                const modEval = evalBinnedMonth(mEntry, modThresh);
+                const modElecEur = (fromElec * (modEval.sAcc + modEval.hAcc * pAdd)) / 100.0;
+                const modSavedLiters = (modEval.hAcc * fromElec) / (10 * eff);
+                yearModernSavings += (modSavedLiters * currentOilRef) - modElecEur;
+            }
+        }
+
+        if (yearHoursCount === 0 || yearBaselineLiters === 0) continue;
+
+        const oilSaved = yearBaselineLiters - yearNewOilLiters;
+        const co2SavedKg = oilSaved * CO2_PER_LITRE;
+        const savingsEur = yearBaselineCost - (yearNewOilCost + yearElecCostEur);
+        const avgSpot = yearSpotSum / yearHoursCount;
+        const weightedOilPrice = yearBaselineCost / yearBaselineLiters;
+        const avgBreakEven = ((weightedOilPrice * 100) / (10 * eff)) - pAdd;
+        const elecSharePct = (oilSaved / yearBaselineLiters) * 100;
+        const energyYearWeight = yearBaselineLiters / qOil;
+
+        sumSavings += savingsEur;
+        sumModernSavings += yearModernSavings;
+        sumOilSaved += oilSaved;
+        sumCo2 += co2SavedKg;
+        weightedYears += energyYearWeight;
+
+        const yearLabel = yearHoursCount < totalYearHours * 0.9 ? `${year} (alkuvuosi)` : `${year}`;
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${yearLabel}</strong></td>
+                <td>${weightedOilPrice.toFixed(2).replace('.', ',')} €/l</td>
+                <td>${avgSpot.toFixed(2).replace('.', ',')} snt</td>
+                <td>${avgBreakEven.toFixed(1).replace('.', ',')} snt</td>
+                <td>
+                    ${elecSharePct.toFixed(0)} %
+                    <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(100, Math.max(0, elecSharePct))}%"></div></div>
+                </td>
+                <td>${Math.round(oilSaved * scale).toLocaleString('fi-FI')} L</td>
+                <td>${Math.round(co2SavedKg * scale).toLocaleString('fi-FI')} kg</td>
+                <td><strong style="color:${savingsEur >= 0 ? 'var(--primary)' : '#dc2626'};">${Math.round(savingsEur * scale).toLocaleString('fi-FI')} €</strong></td>
+            </tr>
+        `;
+    }
+
+    const avgAnnualSavingsPerHome = sumSavings / weightedYears;
+    const avgModernSavingsPerHome = sumModernSavings / weightedYears;
+    const avgAnnualOilSavedPerHome = sumOilSaved / weightedYears;
+    const avgAnnualCo2PerHome = sumCo2 / weightedYears;
+
+    const scaledAnnualSavings = avgAnnualSavingsPerHome * scale;
+    const scaledTotalSavings = sumSavings * scale;
+    const scaledModernSavings = avgModernSavingsPerHome * scale;
+    const scaledAnnualCo2Tons = (avgAnnualCo2PerHome * scale) / 1000.0;
+    const scaledAnnualOilSaved = avgAnnualOilSavedPerHome * scale;
+
+    const refSavingsForPayback = oilMode === 'historical' ? avgModernSavingsPerHome : avgAnnualSavingsPerHome;
+    const paybackMonths = refSavingsForPayback > 0 ? Math.max(1, (270 / refSavingsForPayback) * 12) : 0;
+    const oilReplacedPct = (avgAnnualOilSavedPerHome / qOil) * 100;
+
+    const co2PerCarAnnual = kmPerCar * CO2_ICE_VS_EV_PER_KM;
+    const carsEquivalent = (avgAnnualCo2PerHome * scale) / co2PerCarAnnual;
+
+    document.getElementById('kpiSavingsTitle').innerText = oilMode === 'historical'
+        ? "Historiallinen säästö (2021–2026 hinnoilla)"
+        : `Vuosisäästö (${customOil.toFixed(2).replace('.', ',')} €/l öljyllä)`;
+    document.getElementById('kpiAnnualSavings').innerText = Math.round(scaledAnnualSavings).toLocaleString('fi-FI') + " € / v";
+    document.getElementById('kpiTotalSavingsSub').innerText = oilMode === 'historical'
+        ? `Kertymä 2021–2026: ${Math.round(scaledTotalSavings).toLocaleString('fi-FI')} € | Nykyöljyllä (${currentOilRef.toFixed(2).replace('.', ',')} €/l): ~${Math.round(scaledModernSavings).toLocaleString('fi-FI')} €/v`
+        : `Jakson kokonaissäästö (${scale.toLocaleString('fi-FI')} koti${scale > 1 ? 'a' : ''}): ${Math.round(scaledTotalSavings).toLocaleString('fi-FI')} €`;
+
+    document.getElementById('kpiPayback').innerText = paybackMonths < 12
+        ? `${paybackMonths.toFixed(1).replace('.', ',')} kk`
+        : `${(paybackMonths / 12).toFixed(1).replace('.', ',')} v`;
+    document.getElementById('kpiOilReplacedSub').innerText = `Korvaa öljyä keskim. ${oilReplacedPct.toFixed(0)} % vuodessa`;
+    document.getElementById('kpiCars').innerText = (scale === 1 ? carsEquivalent.toFixed(1).replace('.', ',') : Math.round(carsEquivalent).toLocaleString('fi-FI')) + " autoa";
+    document.getElementById('kpiCarsSub').innerText = `Vastaa ${(avgAnnualCo2PerHome / co2PerCarAnnual).toFixed(1).replace('.', ',')} sähköautoa / talous (${kmPerCar.toLocaleString('fi-FI')} km/v)`;
+    document.getElementById('kpiCo2').innerText = scaledAnnualCo2Tons.toFixed(1).replace('.', ',') + " t CO₂ / v";
+    document.getElementById('kpiLitersSub').innerText = `Säästetty polttoöljy: ${Math.round(scaledAnnualOilSaved).toLocaleString('fi-FI')} L / vuosi`;
+
+    document.getElementById('compHybridShare').innerText = `${oilReplacedPct.toFixed(0)} %`;
+    document.getElementById('compHybridPayback').innerText = `${paybackMonths.toFixed(1).replace('.', ',')} kuukautta`;
+}
+
+document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', runSimulation);
+    el.addEventListener('change', runSimulation);
+});
+
+initData();
+</script>
+</body>
+</html>
