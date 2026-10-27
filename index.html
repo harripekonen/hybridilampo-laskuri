@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Älykäs Hybridilämpö – Öljykattilan pörssisähköoptimointi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --primary: #00205b;
@@ -11,6 +12,7 @@
             --accent: #00c49a;
             --accent-dark: #009675;
             --warning: #e67e22;
+            --danger: #dc2626;
             --bg: #f3f6fa;
             --card: #ffffff;
             --text: #1e293b;
@@ -30,18 +32,18 @@
         .header-card {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
-            padding: 28px 32px;
+            padding: 26px 32px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,32,91,0.15);
-            margin-bottom: 24px;
+            margin-bottom: 18px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 16px;
         }
-        .header-card h1 { margin: 0 0 6px 0; font-size: 1.85rem; }
-        .header-card p { margin: 0; opacity: 0.9; font-size: 1rem; }
+        .header-card h1 { margin: 0 0 6px 0; font-size: 1.8rem; }
+        .header-card p { margin: 0; opacity: 0.9; font-size: 0.98rem; }
         .status-badge {
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.3);
@@ -50,6 +52,38 @@
             font-size: 0.85rem;
             font-weight: 600;
         }
+
+        /* Välilehtinavigaatio */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 11px 22px;
+            border-radius: 10px;
+            font-size: 0.98rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+        .tab-btn:hover { border-color: var(--primary); }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,32,91,0.2);
+        }
+        .tab-view { display: none; }
+        .tab-view.active { display: block; }
+
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -112,7 +146,7 @@
             color: #334155;
         }
         .val-badge { color: var(--primary); font-weight: 700; }
-        input[type="number"], select {
+        input[type="number"], input[type="date"], select {
             width: 100%;
             padding: 9px 12px;
             margin-top: 5px;
@@ -185,6 +219,44 @@
         }
         .ref-item strong { display: block; color: var(--primary); font-size: 0.95rem; }
         .ref-item span { font-size: 0.85rem; color: var(--muted); }
+
+        /* Graafinäkymän kontrollit */
+        .chart-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 18px;
+        }
+        .chart-controls label { margin-top: 0; }
+        .quick-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .q-btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .q-btn:hover, .q-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 460px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -198,162 +270,214 @@
         <div class="status-badge" id="dataStatusBadge">✅ Valmis (2021–2026 data ladattu)</div>
     </div>
 
-    <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-label" id="kpiSavingsTitle">Toteutunut säästö (historiallinen öljynhinta)</div>
-            <div class="kpi-value" id="kpiAnnualSavings">-</div>
-            <div class="kpi-sub" id="kpiTotalSavingsSub">Jakson kokonaissäästö: -</div>
-        </div>
-        <div class="kpi-card orange">
-            <div class="kpi-label">Takaisinmaksuaika (270 € laitteisto)</div>
-            <div class="kpi-value" id="kpiPayback">-</div>
-            <div class="kpi-sub" id="kpiOilReplacedSub">Korvaa öljyä keskim. - % / vuosi</div>
-        </div>
-        <div class="kpi-card green">
-            <div class="kpi-label">Liikenteen päästövertailu</div>
-            <div class="kpi-value" id="kpiCars">-</div>
-            <div class="kpi-sub" id="kpiCarsSub">Polttomoottoriautoa vaihdettuna sähköautoihin</div>
-        </div>
-        <div class="kpi-card dark">
-            <div class="kpi-label">CO₂-vähennys & Öljysäästö / vuosi</div>
-            <div class="kpi-value" id="kpiCo2">-</div>
-            <div class="kpi-sub" id="kpiLitersSub">Säästetty polttoöljy: - L / vuosi</div>
-        </div>
+    <!-- VÄLILEHDET -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('calc', this)">📊 1. Säästölaskuri & Konkretia</button>
+        <button class="tab-btn" onclick="switchTab('chart', this)">📈 2. Hintagraafi & Historia (Sähkö vs. Öljy)</button>
     </div>
 
-    <div class="main-grid">
-        <div class="card">
-            <h3>1. Kiinteistön & skaalauksen tiedot</h3>
-            <label>Vuotuinen öljynkulutus <span class="val-badge" id="lblLiters">2 200 L</span></label>
-            <input type="range" id="annualLiters" min="800" max="4500" step="100" value="2200">
-
-            <label>Asennuskanta (skaalaus, kpl koteja)</label>
-            <input type="number" id="homeScale" value="1" min="1" step="1">
-            <div class="hint">Voit testata esim. 1 kodin, 1 000 kodin tai 100 000 kodin vaikutusta.</div>
-
-            <h3>2. Polttoöljyn ja ohjauksen tila</h3>
-            <label>Öljyn hintamalli</label>
-            <select id="oilMode">
-                <option value="historical" selected>Historiallinen toteuma (Tilastokeskus 2021–2026)</option>
-                <option value="current">Kiinteä öljyn hinta (Nykyhinnan simulointi)</option>
-            </select>
-
-            <div id="customOilBox" style="display:none;">
-                <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">2,01 €/l</span></label>
-                <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="2.01">
+    <!-- NÄKYMÄ 1: SÄÄSTÖLASKURI -->
+    <div id="tab-calc" class="tab-view active">
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label" id="kpiSavingsTitle">Toteutunut säästö (historiallinen öljynhinta)</div>
+                <div class="kpi-value" id="kpiAnnualSavings">-</div>
+                <div class="kpi-sub" id="kpiTotalSavingsSub">Jakson kokonaissäästö: -</div>
             </div>
-
-            <label>Ohjauslogiikka</label>
-            <select id="controlMode">
-                <option value="smart_fixed" selected>Shelly-referenssi (Spot-raja + kannattavuusleikkuri)</option>
-                <option value="dynamic">Täysin dynaaminen kannattavuusraja</option>
-                <option value="raw_fixed">Kiinteä spot-raja (ilman öljyn hintaleikkuria)</option>
-            </select>
-
-            <div id="fixedThresholdBox">
-                <label>Spot-kynnyshinta (snt/kWh) <span class="val-badge" id="lblThreshold">10,0 snt</span></label>
-                <input type="range" id="fixedThreshold" min="2.0" max="25.0" step="0.5" value="10.0">
-                <div class="hint">Shelly-referenssi käyttää tätä rajaa, mutta ei koskaan ylitä kyseisen kuukauden öljyn kannattavuusrajaa.</div>
+            <div class="kpi-card orange">
+                <div class="kpi-label">Takaisinmaksuaika (270 € laitteisto)</div>
+                <div class="kpi-value" id="kpiPayback">-</div>
+                <div class="kpi-sub" id="kpiOilReplacedSub">Korvaa öljyä keskim. - % / vuosi</div>
             </div>
-
-            <div class="breakeven-pill" id="breakevenInfo">Lasketaan kannattavuusrajaa...</div>
-
-            <h3>3. Tekniset oletukset</h3>
-            <label>Siirto + Sähkövero + Marginaali (snt/kWh)</label>
-            <input type="number" id="elecExtras" value="8.68" step="0.1">
-            <div class="hint">Oletus: Siirto 5,26 + Vero 2,83 + Marginaali 0,59 = 8,68 snt/kWh</div>
-
-            <label>Sähkövastuksen teho (kW)</label>
-            <input type="number" id="kwCap" value="6" min="2" max="15" step="0.5">
-
-            <label>Öljykattilan hyötysuhde (%)</label>
-            <input type="number" id="efficiency" value="85" min="65" max="98" step="1">
-
-            <label>Auton keskim. ajosuorite (km/v)</label>
-            <input type="number" id="kmPerCar" value="13200" step="200">
-            <div class="hint">Tilastokeskuksen Suomen keskiarvo: 13 200 km/v.</div>
+            <div class="kpi-card green">
+                <div class="kpi-label">Liikenteen päästövertailu</div>
+                <div class="kpi-value" id="kpiCars">-</div>
+                <div class="kpi-sub" id="kpiCarsSub">Polttomoottoriautoa vaihdettuna sähköautoihin</div>
+            </div>
+            <div class="kpi-card dark">
+                <div class="kpi-label">CO₂-vähennys & Öljysäästö / vuosi</div>
+                <div class="kpi-value" id="kpiCo2">-</div>
+                <div class="kpi-sub" id="kpiLitersSub">Säästetty polttoöljy: - L / vuosi</div>
+            </div>
         </div>
 
-        <div>
+        <div class="main-grid">
             <div class="card">
-                <h2>Vuosikohtainen analyysi (2021–2026)</h2>
-                <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                    Taulukossa kukin kuukausi on laskettu kyseisen ajankohdan todellisella pörssisähkön tuntihinnalla ja valitulla öljyn hintamallilla.
-                </p>
+                <h3>1. Kiinteistön & skaalauksen tiedot</h3>
+                <label>Vuotuinen öljynkulutus <span class="val-badge" id="lblLiters">2 200 L</span></label>
+                <input type="range" id="annualLiters" min="800" max="4500" step="100" value="2200">
 
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Vuosi</th>
-                            <th>Öljyn hinta</th>
-                            <th>Spot-keskiarvo</th>
-                            <th>Kannattavuusraja</th>
-                            <th>Sähkön osuus</th>
-                            <th>Öljyä säästetty</th>
-                            <th>CO₂-vähennys</th>
-                            <th>Säästö (€)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="yearlyTableBody"></tbody>
-                </table>
+                <label>Asennuskanta (skaalaus, kpl koteja)</label>
+                <input type="number" id="homeScale" value="1" min="1" step="1">
+                <div class="hint">Voit testata esim. 1 kodin, 1 000 kodin tai 100 000 kodin vaikutusta.</div>
 
-                <div class="ref-box">
-                    <h3 style="border:none; padding:0; margin:0 0 6px 0; color:#065f46;">
-                        ✅ Kentällä todistettu referenssitoteutus (Kustannus n. 270 €)
-                    </h3>
-                    <p style="margin:0; font-size:0.92rem; color:#1e293b;">
-                        Järjestelmä on käytössä oikeassa omakotitalossa ilman kalliita pilvipalveluita tai polttimen turvaketjun muokkauksia:
+                <h3>2. Polttoöljyn ja ohjauksen tila</h3>
+                <label>Öljyn hintamalli</label>
+                <select id="oilMode">
+                    <option value="historical" selected>Historiallinen toteuma (2021–2026)</option>
+                    <option value="current">Kiinteä öljyn hinta (Nykyhinnan simulointi)</option>
+                </select>
+
+                <div id="customOilBox" style="display:none;">
+                    <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">2,01 €/l</span></label>
+                    <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="2.01">
+                </div>
+
+                <label>Ohjauslogiikka</label>
+                <select id="controlMode">
+                    <option value="smart_fixed" selected>Shelly-referenssi (Spot-raja + kannattavuusleikkuri)</option>
+                    <option value="dynamic">Täysin dynaaminen kannattavuusraja</option>
+                    <option value="raw_fixed">Kiinteä spot-raja (ilman öljyn hintaleikkuria)</option>
+                </select>
+
+                <div id="fixedThresholdBox">
+                    <label>Spot-kynnyshinta (snt/kWh) <span class="val-badge" id="lblThreshold">10,0 snt</span></label>
+                    <input type="range" id="fixedThreshold" min="2.0" max="25.0" step="0.5" value="10.0">
+                    <div class="hint">Shelly-referenssi käyttää tätä rajaa, mutta ei koskaan ylitä kyseisen kuukauden öljyn kannattavuusrajaa.</div>
+                </div>
+
+                <div class="breakeven-pill" id="breakevenInfo">Lasketaan kannattavuusrajaa...</div>
+
+                <h3>3. Tekniset oletukset</h3>
+                <label>Siirto + Sähkövero + Marginaali (snt/kWh)</label>
+                <input type="number" id="elecExtras" value="8.68" step="0.1">
+                <div class="hint">Oletus: Siirto 5,26 + Vero 2,83 + Marginaali 0,59 = 8,68 snt/kWh</div>
+
+                <label>Sähkövastuksen teho (kW)</label>
+                <input type="number" id="kwCap" value="6" min="2" max="15" step="0.5">
+
+                <label>Öljykattilan hyötysuhde (%)</label>
+                <input type="number" id="efficiency" value="85" min="65" max="98" step="1">
+
+                <label>Auton keskim. ajosuorite (km/v)</label>
+                <input type="number" id="kmPerCar" value="13200" step="200">
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>Vuosikohtainen analyysi (2021–2026)</h2>
+                    <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
+                        Taulukossa kukin kuukausi on laskettu kyseisen ajankohdan todellisella pörssisähkön tuntihinnalla ja valitulla öljyn hintamallilla.
                     </p>
-                    <div class="ref-grid">
-                        <div class="ref-item">
-                            <strong>Termostaatti-ikkuna (70 °C / 80 °C)</strong>
-                            <span>Öljypolttimen termostaatti on asetettu ~70 asteeseen ja sähkövastuksen ~80 asteeseen. Kun sähkö on halpaa, vastus pitää kattilan 80 asteessa eikä poltin käynnisty.</span>
-                        </div>
-                        <div class="ref-item">
-                            <strong>Shelly Pro 3 + Tuntikeskiarvo</strong>
-                            <span>Shelly hakee pörssisähkön hinnan ja laskee kullekin tunnille keskiarvon. Tämä säästää laitteen muistia ja vähentää kontaktorin turhaa pätkimistä.</span>
-                        </div>
-                        <div class="ref-item">
-                            <strong>Automaattinen pakkasvarmistus</strong>
-                            <span>Jos kovalla pakkasella 6 kW sähkövastus ei yksin riitä ja lämpö laskee 70 asteeseen, öljypoltin käynnistyy automaattisesti avuksi.</span>
-                        </div>
-                        <div class="ref-item">
-                            <strong>Sähkökatkoturva ~160 Wh/h</strong>
-                            <span>Öljypoltin, kiertovesipumput ja ohjaus kuluttavat vain ~160 W. Jo pieni 2 kWh akku pitää talon lämpimänä 12 h sähkökatkon ajan.</span>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vuosi</th>
+                                <th>Öljyn hinta</th>
+                                <th>Spot-keskiarvo</th>
+                                <th>Kannattavuusraja</th>
+                                <th>Sähkön osuus</th>
+                                <th>Öljyä säästetty</th>
+                                <th>CO₂-vähennys</th>
+                                <th>Säästö (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yearlyTableBody"></tbody>
+                    </table>
+
+                    <div class="ref-box">
+                        <h3 style="border:none; padding:0; margin:0 0 6px 0; color:#065f46;">
+                            ✅ Kentällä todistettu referenssitoteutus (Kustannus n. 270 €)
+                        </h3>
+                        <p style="margin:0; font-size:0.92rem; color:#1e293b;">
+                            Järjestelmä on käytössä oikeassa omakotitalossa ilman kalliita pilvipalveluita tai polttimen turvaketjun muokkauksia:
+                        </p>
+                        <div class="ref-grid">
+                            <div class="ref-item">
+                                <strong>Termostaatti-ikkuna (70 °C / 80 °C)</strong>
+                                <span>Öljypolttimen termostaatti on asetettu ~70 asteeseen ja sähkövastuksen ~80 asteeseen. Kun sähkö on halpaa, vastus pitää kattilan 80 asteessa eikä poltin käynnisty.</span>
+                            </div>
+                            <div class="ref-item">
+                                <strong>Shelly Pro 3 + Tuntikeskiarvo</strong>
+                                <span>Shelly hakee pörssisähkön hinnan ja laskee kullekin tunnille keskiarvon. Tämä säästää laitteen muistia ja vähentää kontaktorin turhaa pätkimistä.</span>
+                            </div>
+                            <div class="ref-item">
+                                <strong>Automaattinen pakkasvarmistus</strong>
+                                <span>Jos kovalla pakkasella 6 kW sähkövastus ei yksin riitä ja lämpö laskee 70 asteeseen, öljypoltin käynnistyy automaattisesti avuksi.</span>
+                            </div>
+                            <div class="ref-item">
+                                <strong>Sähkökatkoturva ~160 Wh/h</strong>
+                                <span>Öljypoltin, kiertovesipumput ja ohjaus kuluttavat vain ~160 W. Jo pieni 2 kWh akku pitää talon lämpimänä 12 h sähkökatkon ajan.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="card">
-                <h2>Investointivertailu: Miksi älyohjaus voittaa 15 000 € remontin?</h2>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Ratkaisu</th>
-                            <th>Investointi</th>
-                            <th>Öljyn korvausaste</th>
-                            <th>Takaisinmaksuaika</th>
-                            <th>Huoltovarmuus pakkasella & sähkökatkossa</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Älykäs Hybridiohjaus (Shelly Pro 3)</strong></td>
-                            <td><strong>n. 270 – 590 €</strong></td>
-                            <td id="compHybridShare">60 – 80 %</td>
-                            <td><strong style="color:var(--accent-dark);" id="compHybridPayback">2 – 6 kk</strong></td>
-                            <td>Täysi (öljy toimii varalla + kevyt 1-vaiheinen akku riittää)</td>
-                        </tr>
-                        <tr>
-                            <td>Ilmavesilämpöpumppu (VILP)</td>
-                            <td>n. 14 000 – 18 000 €</td>
-                            <td>85 – 95 %</td>
-                            <td>8 – 12 vuotta</td>
-                            <td>Heikko sähkökatkossa (vaatii 3-vaihevirran ja ison tehon)</td>
-                        </tr>
-                    </tbody>
-                </table>
+    <!-- NÄKYMÄ 2: HINTAGRAAFI & HISTORIA -->
+    <div id="tab-chart" class="tab-view">
+        <div class="card">
+            <h2>Pörssisähkön ja lämmitysöljyn hintakehitys (2021–2026)</h2>
+            <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
+                Vertaa toteutunutta pörssisähkön hintaa ja lämmitysöljyn hintaa päivä-, viikko- tai kuukausitasolla. Aina kun vihreä/sininen sähkökäyrä on oranssin öljykäyrän alapuolella, sähköllä lämmittäminen tuottaa suoraa säästöä.
+            </p>
+
+            <div class="chart-controls">
+                <div>
+                    <label>Tarkkuustaso (Aggregointi)</label>
+                    <select id="chartResolution" onchange="updateHistoryChart()">
+                        <option value="month">Kuukausitaso (2021–2026)</option>
+                        <option value="week" selected>Viikkotaso</option>
+                        <option value="day">Päivätaso (Tarkka)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Yksikkö & Vertailutapa</label>
+                    <select id="chartUnitMode" onchange="updateHistoryChart()">
+                        <option value="energy_kwh" selected>Todellinen lämpöhinta (snt/kWh, sis. siirto+vero & hyötysuhde)</option>
+                        <option value="raw_dual">Raakahinnat: Spot (snt/kWh) vs. Öljy (€/l)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Alkupäivä</label>
+                    <input type="date" id="chartStartDate" value="2021-01-01" onchange="updateHistoryChart()">
+                </div>
+
+                <div>
+                    <label>Loppupäivä</label>
+                    <input type="date" id="chartEndDate" value="2026-12-31" onchange="updateHistoryChart()">
+                </div>
+
+                <div style="grid-column: 1 / -1;">
+                    <label>Pikavalinta ajanjaksolle</label>
+                    <div class="quick-btns">
+                        <button class="q-btn active" onclick="setChartRange('2021-01-01', '2026-12-31', 'month', this)">Koko historia (2021–2026)</button>
+                        <button class="q-btn" onclick="setChartRange('2022-01-01', '2022-12-31', 'week', this)">Energiakriisi 2022</button>
+                        <button class="q-btn" onclick="setChartRange('2024-01-01', '2024-12-31', 'week', this)">Vuosi 2024</button>
+                        <button class="q-btn" onclick="setChartRange('2025-01-01', '2025-12-31', 'week', this)">Vuosi 2025</button>
+                        <button class="q-btn" onclick="setChartRange('2026-01-01', '2026-12-31', 'day', this)">Vuosi 2026 (Päivätaso)</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-grid" style="margin-bottom:16px;">
+                <div class="kpi-card">
+                    <div class="kpi-label">Valitun jakson Spot-keskiarvo</div>
+                    <div class="kpi-value" id="chartKpiSpot">-</div>
+                    <div class="kpi-sub" id="chartKpiSpotTotal">Kokonaishinta (sis. siirto+vero): -</div>
+                </div>
+                <div class="kpi-card orange">
+                    <div class="kpi-label">Valitun jakson Öljyn keskihinta</div>
+                    <div class="kpi-value" id="chartKpiOil">-</div>
+                    <div class="kpi-sub" id="chartKpiOilKwh">Lämpöenergian hinta: - snt/kWh</div>
+                </div>
+                <div class="kpi-card green">
+                    <div class="kpi-label">Sähkö halvempaa kuin öljy</div>
+                    <div class="kpi-value" id="chartKpiWinPct">-</div>
+                    <div class="kpi-sub">Osuus valitun jakson ajasta</div>
+                </div>
+            </div>
+
+            <div class="chart-wrapper">
+                <canvas id="priceHistoryChart"></canvas>
+            </div>
+            <div class="hint" style="margin-top:10px;">
+                <strong>Tietolähteet:</strong> Pörssisähkön toteutuneet tuntihinnat (Nord Pool / ENTSO-E, ALV-korjattu) sekä lämmitysöljyn kuluttajahinnat (Tilastokeskus & Neste lämmitysöljylaskuri, postinumero 21260).
             </div>
         </div>
     </div>
@@ -363,6 +487,7 @@
 let oilData = {
     "updated": "2026-10-18",
     "current_price": 2.01,
+    "daily": {},
     "monthly": {
         "2021": [0.86, 0.92, 0.96, 0.93, 0.97, 0.99, 1.01, 1.01, 1.03, 1.14, 1.15, 1.11],
         "2022": [1.18, 1.29, 2.06, 1.59, 1.74, 1.95, 1.78, 1.62, 1.73, 1.93, 1.80, 1.44],
@@ -377,11 +502,253 @@ const BIN_EDGES = [2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25];
 const FALLBACK_SPOT = {"2021":{"1":[743,4720,[5,131,234,198,70,49,23,15,12,5,0,1,0,0,0],[8,434,1206,1377,591,462,237,171,150,68,0,15,0,0,0]],"2":[672,4763,[0,56,279,141,68,55,19,15,6,5,5,2,1,3,15],[0,180,1400,983,574,522,200,172,74,68,73,32,17,57,349]],"3":[743,3534,[26,298,228,111,55,14,5,2,3,0,0,0,0,1,0],[47,847,1147,765,466,131,52,23,37,0,0,0,0,19,0]],"4":[720,3280,[85,286,144,115,42,31,10,1,3,0,2,1,0,0,0],[108,789,742,799,354,292,102,12,37,0,29,16,0,0,0]],"5":[744,4239,[44,195,125,260,30,37,28,11,11,1,0,0,2,0,0],[55,586,641,1747,252,356,294,124,136,14,0,0,34,0,0]],"6":[720,5013,[32,110,206,107,33,42,70,54,50,8,4,2,1,0,1],[29,362,1009,717,282,408,734,617,620,107,59,31,17,0,22]],"7":[744,7265,[4,8,107,105,65,66,87,102,101,62,12,16,9,0,0],[2,26,574,731,555,627,915,1170,1261,832,174,250,146,0,0]],"8":[744,6294,[14,18,77,261,87,76,63,60,43,17,13,9,6,0,0],[6,57,419,1806,747,723,659,689,530,229,190,140,99,0,0]],"9":[720,7967,[0,17,40,120,58,67,77,65,43,83,56,33,20,13,27],[0,59,220,826,493,644,805,744,535,1115,810,509,332,243,607]],"10":[744,5987,[134,121,81,63,33,34,46,54,32,26,41,25,9,4,29],[155,331,413,426,278,326,485,620,398,350,595,386,150,75,652]],"11":[720,7655,[188,64,18,25,22,20,36,53,83,25,33,19,19,18,32],[268,173,94,179,185,189,382,610,1026,336,483,293,324,344,721]],"12":[744,17852,[15,28,20,8,5,15,22,34,26,26,23,30,78,57,107],[28,75,94,55,42,143,231,391,322,347,338,470,1318,1078,2451]]},"2022":{"1":[744,9830,[59,87,40,38,33,27,29,32,38,18,30,21,86,71,69],[92,227,199,263,284,256,303,370,473,243,438,326,1480,1341,1529]],"2":[672,6769,[93,74,59,49,22,26,26,42,37,50,48,40,55,16,14],[157,210,287,337,183,246,274,482,460,676,698,625,934,303,316]],"3":[743,7955,[120,75,63,84,48,40,27,27,19,49,38,14,19,14,53],[185,218,311,580,409,381,287,309,238,665,558,216,319,264,1221]],"4":[720,7082,[35,114,107,79,77,56,38,20,20,39,17,4,14,16,46],[48,351,527,555,656,527,397,228,247,531,249,62,235,308,1071]],"5":[744,12255,[66,53,27,16,10,22,18,26,42,36,33,23,59,34,124],[70,162,131,108,85,207,190,302,523,486,484,357,1001,646,2784]],"6":[720,12491,[89,84,28,16,8,11,15,15,19,15,9,7,29,65,114],[92,270,142,108,68,104,159,173,239,204,130,108,497,1229,2554]],"7":[744,17005,[76,28,21,14,4,6,4,6,17,11,14,11,25,65,163],[41,79,105,95,34,58,42,70,214,149,203,171,425,1239,3688]],"8":[744,24123,[132,58,16,16,6,8,4,2,5,5,5,1,16,20,43],[89,176,78,109,52,77,43,24,62,69,73,15,278,382,1016]],"9":[720,19164,[20,37,33,41,21,15,16,16,14,13,19,7,15,18,76],[34,124,163,282,177,145,169,182,176,174,278,108,253,342,1744]],"10":[744,10499,[187,77,26,30,5,10,19,13,21,12,23,12,44,34,91],[216,203,126,215,44,96,200,150,259,161,336,185,745,644,2033]],"11":[720,17422,[57,38,16,10,6,7,6,13,15,10,18,4,39,38,113],[27,112,76,71,51,67,63,148,187,135,265,62,662,726,2574]],"12":[744,20160,[35,50,20,20,7,5,12,14,13,13,15,13,21,26,61],[25,145,103,145,60,48,125,162,158,175,217,201,355,494,1405]]},"2023":{"1":[744,6439,[52,125,84,96,72,66,34,31,23,25,31,26,42,24,11],[39,397,417,698,613,619,358,358,289,338,449,404,709,450,247]],"2":[672,5928,[15,156,81,87,29,36,28,47,39,30,27,19,38,28,12],[23,475,399,603,245,343,294,546,484,401,392,295,642,528,258]],"3":[743,6061,[29,136,166,63,38,17,42,75,57,29,25,27,24,11,4],[21,430,799,440,324,162,444,862,714,390,363,417,404,206,85]],"4":[720,4796,[37,117,225,115,41,55,39,32,30,8,7,3,6,5,0],[24,385,1107,798,349,527,411,368,374,107,103,46,101,95,0]],"5":[744,2463,[432,78,31,61,38,40,24,14,10,7,6,2,1,0,0],[177,231,155,432,320,384,250,161,126,94,87,31,16,0,0]],"6":[720,3871,[178,127,75,169,55,28,25,18,19,4,7,4,7,2,2],[97,360,387,1178,468,264,262,207,236,54,100,63,115,39,41]],"7":[744,3045,[115,286,162,147,16,9,4,3,1,1,0,0,0,0,0],[18,892,789,1026,133,84,43,35,12,13,0,0,0,0,0]],"8":[744,6125,[196,221,32,9,4,25,8,21,32,11,16,17,30,37,48],[146,601,144,63,34,245,83,241,402,148,233,263,514,702,1042]],"9":[720,2944,[479,69,26,8,9,5,5,22,10,8,12,9,9,14,21],[256,189,131,54,78,49,54,250,125,108,174,140,150,263,488]],"10":[744,3481,[391,92,46,39,29,11,9,10,22,19,7,12,23,8,19],[135,282,231,270,247,105,96,115,275,257,102,185,382,152,434]],"11":[720,6333,[81,154,72,38,15,40,49,47,33,28,17,37,52,17,23],[-446,444,350,276,128,384,517,542,408,380,246,571,882,322,508]],"12":[744,7038,[78,113,109,60,25,41,29,42,44,36,24,18,23,44,44],[69,353,521,418,214,394,306,485,549,489,348,280,389,826,984]]},"2024":{"1":[744,9805,[40,149,66,56,35,51,48,57,40,26,23,22,29,26,29],[21,424,317,394,294,490,503,657,498,351,334,339,486,488,651]],"2":[696,4453,[134,128,111,125,37,30,11,26,18,8,9,18,14,9,14],[69,388,550,848,308,288,114,299,225,109,133,278,232,170,318]],"3":[743,5466,[34,74,182,161,77,73,43,25,25,18,13,2,12,2,2],[32,242,922,1125,656,692,450,288,309,243,187,31,203,38,46]],"4":[720,4368,[130,77,171,153,40,49,31,14,15,8,10,6,9,2,2],[41,242,878,1063,340,467,323,161,189,108,144,93,149,38,44]],"5":[744,3251,[378,113,87,36,18,6,16,12,8,8,10,4,11,9,11],[154,351,399,247,152,59,168,136,99,108,143,62,188,170,254]],"6":[720,3222,[281,154,136,32,9,9,16,5,11,14,6,9,13,5,15],[144,480,620,220,78,87,167,58,138,190,86,141,222,93,338]],"7":[744,1555,[280,415,46,2,0,0,0,0,1,0,0,0,0,0,0],[113,1213,201,15,0,0,0,0,12,0,0,0,0,0,0]],"8":[744,1166,[498,187,23,17,7,5,4,1,0,1,0,0,1,0,0],[221,526,110,118,60,47,41,11,0,14,0,0,17,0,0]],"9":[720,5063,[293,63,55,62,27,31,23,19,15,16,13,12,19,20,19],[176,178,266,434,227,295,239,219,189,214,187,186,322,377,431]],"10":[744,3802,[422,111,46,19,9,5,15,1,11,9,3,9,16,22,7],[169,328,223,127,76,47,158,12,139,121,43,139,271,419,146]],"11":[720,4096,[293,80,71,56,34,21,27,29,19,7,13,7,18,21,21],[154,243,355,382,289,201,283,334,235,95,189,109,305,398,447]],"12":[744,3623,[379,79,82,61,25,14,13,10,7,8,3,6,10,6,17],[207,239,398,427,211,133,134,116,88,106,44,93,170,115,374]]},"2025":{"1":[744,4932,[244,89,93,58,30,20,24,31,26,31,7,22,28,15,16],[128,275,459,399,257,191,251,357,327,416,101,341,474,282,347]],"2":[672,3985,[300,84,61,32,10,12,13,11,17,23,16,29,23,12,13],[187,245,303,221,86,114,136,128,213,312,231,447,386,230,277]],"3":[743,4429,[399,43,44,31,8,12,20,16,25,18,14,13,37,16,22],[168,126,218,214,69,114,208,183,315,243,203,202,620,304,497]],"4":[720,4313,[374,62,54,43,18,6,23,7,13,9,10,11,21,13,20],[178,192,263,298,151,57,241,80,163,123,145,171,352,250,452]],"5":[744,1709,[541,51,49,35,11,8,7,12,6,4,5,4,3,8,0],[236,151,239,238,93,75,73,138,76,54,71,63,51,151,0]],"6":[720,1685,[564,38,20,15,19,12,11,0,8,1,2,2,8,4,7],[163,118,96,97,163,114,115,0,101,13,29,31,140,76,157]],"7":[744,2255,[339,208,102,50,11,10,7,5,5,2,1,3,1,0,0],[326,596,507,343,92,94,72,57,62,26,14,47,17,0,0]],"8":[744,5157,[321,40,40,33,29,34,44,34,35,21,21,18,15,18,19],[147,119,194,225,246,322,460,392,438,283,303,275,257,339,422]],"9":[720,3777,[345,81,49,37,30,27,36,22,25,11,3,13,8,10,11],[238,234,248,256,256,257,379,253,313,149,44,199,136,186,245]],"10":[744,4575,[329,69,47,52,37,24,30,27,26,15,17,8,13,9,21],[201,202,237,372,315,228,315,312,326,203,244,122,221,172,459]],"11":[720,4335,[286,84,69,39,31,24,35,29,26,13,10,13,20,13,22],[222,244,344,265,263,228,368,332,325,176,144,201,336,245,479]],"12":[744,3354,[293,163,75,49,25,45,13,19,16,4,4,2,20,11,5],[167,505,355,341,212,426,135,216,200,53,57,31,342,210,105]]},"2026":{"1":[385,4252,[6,18,40,52,21,30,31,35,34,21,16,23,26,13,13],[8,59,203,366,176,287,324,403,422,283,231,355,441,247,286]]}};
 
 let spotHourlyPrices = [];
+let spotStartIso = "2021-01-01T01:00:00";
+let dailyRecords = [];
+let priceChartInstance = null;
+
 const CO2_PER_LITRE = 2.68;
 const CO2_ICE_VS_EV_PER_KM = 0.144;
 const monthlyWeights = [0.17, 0.15, 0.14, 0.08, 0.04, 0.01, 0.01, 0.01, 0.04, 0.08, 0.13, 0.14];
 const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
 const daysInMonth = (y) => [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function switchTab(tabId, btnEl) {
+    document.querySelectorAll('.tab-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btnEl.classList.add('active');
+    if (tabId === 'chart') {
+        updateHistoryChart();
+    }
+}
+
+function getOilPriceForDate(dateStr, year, monthIdx) {
+    if (oilData.daily && oilData.daily[dateStr]) {
+        return oilData.daily[dateStr];
+    }
+    const mArr = oilData.monthly[String(year)];
+    if (mArr && mArr[monthIdx] !== undefined) {
+        return mArr[monthIdx];
+    }
+    return oilData.current_price || 2.01;
+}
+
+function buildDailyRecords() {
+    dailyRecords = [];
+    if (spotHourlyPrices.length > 8000) {
+        let ptr = 0;
+        for (let y = 2021; y <= 2026; y++) {
+            const mDays = daysInMonth(y);
+            for (let m = 0; m < 12; m++) {
+                for (let d = 1; d <= mDays[m]; d++) {
+                    if (ptr >= spotHourlyPrices.length) break;
+                    let sum = 0, cnt = 0;
+                    for (let h = 0; h < 24; h++) {
+                        if (ptr >= spotHourlyPrices.length) break;
+                        sum += spotHourlyPrices[ptr++];
+                        cnt++;
+                    }
+                    if (cnt > 0) {
+                        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        dailyRecords.push({
+                            date: dateStr,
+                            year: y,
+                            month: m + 1,
+                            spot: sum / cnt,
+                            oil: getOilPriceForDate(dateStr, y, m)
+                        });
+                    }
+                }
+            }
+        }
+    } else {
+        // Jos tuntidataa ei vielä ole ladattu, luodaan kuukausipohjainen sarja FALLBACK_SPOTista
+        for (let y = 2021; y <= 2026; y++) {
+            const mDays = daysInMonth(y);
+            for (let m = 0; m < 12; m++) {
+                const entry = FALLBACK_SPOT[String(y)] && FALLBACK_SPOT[String(y)][String(m + 1)];
+                if (!entry) continue;
+                const avgSpot = entry[1] / entry[0];
+                for (let d = 1; d <= mDays[m]; d++) {
+                    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    dailyRecords.push({
+                        date: dateStr,
+                        year: y,
+                        month: m + 1,
+                        spot: avgSpot,
+                        oil: getOilPriceForDate(dateStr, y, m)
+                    });
+                }
+            }
+        }
+    }
+}
+
+function setChartRange(start, end, res, btnEl) {
+    document.getElementById('chartStartDate').value = start;
+    document.getElementById('chartEndDate').value = end;
+    document.getElementById('chartResolution').value = res;
+    document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    updateHistoryChart();
+}
+
+function updateHistoryChart() {
+    if (dailyRecords.length === 0) buildDailyRecords();
+
+    const res = document.getElementById('chartResolution').value;
+    const unitMode = document.getElementById('chartUnitMode').value;
+    const startStr = document.getElementById('chartStartDate').value || '2021-01-01';
+    const endStr = document.getElementById('chartEndDate').value || '2026-12-31';
+    const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
+    const eff = (parseFloat(document.getElementById('efficiency').value) || 85) / 100;
+
+    const filtered = dailyRecords.filter(r => r.date >= startStr && r.date <= endStr);
+    if (filtered.length === 0) return;
+
+    // Ryhmitellään valitulle tarkkuustasolle (day, week, month)
+    const groups = [];
+    if (res === 'day') {
+        filtered.forEach(r => groups.push({ label: r.date, spot: r.spot, oil: r.oil }));
+    } else if (res === 'week') {
+        for (let i = 0; i < filtered.length; i += 7) {
+            const slice = filtered.slice(i, i + 7);
+            const avgS = slice.reduce((a, b) => a + b.spot, 0) / slice.length;
+            const avgO = slice.reduce((a, b) => a + b.oil, 0) / slice.length;
+            groups.push({ label: slice[0].date, spot: avgS, oil: avgO });
+        }
+    } else {
+        const map = {};
+        filtered.forEach(r => {
+            const ym = r.date.slice(0, 7);
+            if (!map[ym]) map[ym] = { sSum: 0, oSum: 0, cnt: 0 };
+            map[ym].sSum += r.spot;
+            map[ym].oSum += r.oil;
+            map[ym].cnt++;
+        });
+        Object.keys(map).sort().forEach(ym => {
+            groups.push({
+                label: ym,
+                spot: map[ym].sSum / map[ym].cnt,
+                oil: map[ym].oSum / map[ym].cnt
+            });
+        });
+    }
+
+    // Lasketaan valitun jakson KPI-luvut
+    const meanSpot = filtered.reduce((a, b) => a + b.spot, 0) / filtered.length;
+    const meanOil = filtered.reduce((a, b) => a + b.oil, 0) / filtered.length;
+    const meanOilKwh = (meanOil * 100) / (10 * eff);
+    const winDays = filtered.filter(r => (r.spot + pAdd) <= ((r.oil * 100) / (10 * eff))).length;
+    const winPct = (winDays / filtered.length) * 100;
+
+    document.getElementById('chartKpiSpot').innerText = meanSpot.toFixed(2).replace('.', ',') + " snt/kWh";
+    document.getElementById('chartKpiSpotTotal').innerText = `Kokonaishinta (sis. siirto+vero): ${(meanSpot + pAdd).toFixed(2).replace('.', ',')} snt/kWh`;
+    document.getElementById('chartKpiOil').innerText = meanOil.toFixed(2).replace('.', ',') + " €/l";
+    document.getElementById('chartKpiOilKwh').innerText = `Lämpöenergian hinta (${Math.round(eff*100)} % hyötysuhde): ${meanOilKwh.toFixed(2).replace('.', ',')} snt/kWh`;
+    document.getElementById('chartKpiWinPct').innerText = winPct.toFixed(0) + " %";
+
+    const labels = groups.map(g => g.label);
+    let datasets = [];
+    let scales = {};
+
+    if (unitMode === 'energy_kwh') {
+        datasets = [
+            {
+                label: 'Sähkölämmön kokonaishinta (Spot + siirto & vero, snt/kWh)',
+                data: groups.map(g => Number((g.spot + pAdd).toFixed(2))),
+                borderColor: '#00c49a',
+                backgroundColor: 'rgba(0, 196, 154, 0.12)',
+                borderWidth: 2,
+                pointRadius: res === 'month' ? 3 : 0,
+                fill: true,
+                tension: 0.2
+            },
+            {
+                label: `Öljylämmön energiahinta (${Math.round(eff*100)} % hyötysuhteella, snt/kWh)`,
+                data: groups.map(g => Number(((g.oil * 100) / (10 * eff)).toFixed(2))),
+                borderColor: '#e67e22',
+                backgroundColor: 'rgba(230, 126, 34, 0.05)',
+                borderWidth: 2.5,
+                pointRadius: res === 'month' ? 3 : 0,
+                fill: false,
+                tension: 0.2
+            },
+            {
+                label: 'Pelkkä Pörssisähkö Spot (snt/kWh)',
+                data: groups.map(g => Number(g.spot.toFixed(2))),
+                borderColor: '#00205b',
+                borderDash: [4, 4],
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.2
+            }
+        ];
+        scales = {
+            y: {
+                title: { display: true, text: 'Hinta (snt / kWh)' }
+            }
+        };
+    } else {
+        datasets = [
+            {
+                label: 'Pörssisähkö Spot (snt/kWh)',
+                data: groups.map(g => Number(g.spot.toFixed(2))),
+                borderColor: '#00205b',
+                backgroundColor: 'rgba(0, 32, 91, 0.1)',
+                borderWidth: 2,
+                pointRadius: res === 'month' ? 3 : 0,
+                yAxisID: 'y',
+                fill: true,
+                tension: 0.2
+            },
+            {
+                label: 'Kevyt polttoöljy (€ / litra)',
+                data: groups.map(g => Number(g.oil.toFixed(2))),
+                borderColor: '#e67e22',
+                borderWidth: 2.5,
+                pointRadius: res === 'month' ? 3 : 0,
+                yAxisID: 'y1',
+                fill: false,
+                tension: 0.2
+            }
+        ];
+        scales = {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: { display: true, text: 'Pörssisähkö (snt/kWh)' }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: { display: true, text: 'Polttoöljy (€/l)' },
+                grid: { drawOnChartArea: false }
+            }
+        };
+    }
+
+    const ctx = document.getElementById('priceHistoryChart').getContext('2d');
+    if (priceChartInstance) {
+        priceChartInstance.destroy();
+    }
+    priceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales
+        }
+    });
+}
 
 function evalBinnedMonth(mEntry, thresh) {
     const [nTot, sTot, counts, sums] = mEntry;
@@ -421,12 +788,14 @@ async function initData() {
             const spotJson = await spotRes.json();
             if (spotJson.prices && spotJson.prices.length > 8000) {
                 spotHourlyPrices = spotJson.prices;
+                spotStartIso = spotJson.start || "2021-01-01T01:00:00";
                 badge.innerText = `✅ Live-data (${spotJson.updated || oilData.updated || '2021–2026'})`;
             }
         }
+        buildDailyRecords();
         runSimulation();
     } catch (err) {
-        // Käytetään sisäänrakennettua 2021-2026 dataa
+        buildDailyRecords();
     }
 }
 
@@ -454,8 +823,8 @@ function runSimulation() {
 
     document.getElementById('breakevenInfo').innerHTML =
         oilMode === 'historical'
-        ? `<strong>Historiallinen öljyn hintamalli (Tilastokeskus):</strong><br>` +
-          `Jokainen kuukausi (2021–2026) lasketaan sen hetkisellä todellisella öljyn hinnalla (0,86–2,06 €/l). ` +
+        ? `<strong>Historiallinen öljyn hintamalli (2021–2026):</strong><br>` +
+          `Jokainen kuukausi lasketaan sen hetkisellä todellisella öljyn hinnalla (0,86–2,06 €/l). ` +
           `Nykyhinnalla (${currentOilRef.toFixed(2).replace('.', ',')} €/l) kannattavuusraja on <strong>${currentBreakEvenSpot.toFixed(1).replace('.', ',')} snt/kWh</strong>.`
         : `<strong>Kiinteä öljynhinta (${customOil.toFixed(2).replace('.', ',')} €/l):</strong><br>` +
           `Öljylämpö maksaa <strong>${currentOilKwhCents.toFixed(2).replace('.', ',')} snt/kWh</strong>. ` +
@@ -520,7 +889,6 @@ function runSimulation() {
                         yearNewOilCost += hourLiters * monthOilEur;
                     }
 
-                    // Lasketaan vertailuna myös mitä tämä tunti säästäisi nykyisellä (2.01 €/l) öljynhinnalla
                     const modThresh = controlMode === 'dynamic' ? currentBreakEvenSpot : Math.min(fixedThresh, currentBreakEvenSpot);
                     if (spot <= modThresh) {
                         const modElecEur = (fromElec * (spot + pAdd)) / 100.0;
@@ -621,11 +989,12 @@ function runSimulation() {
     document.getElementById('kpiCo2').innerText = scaledAnnualCo2Tons.toFixed(1).replace('.', ',') + " t CO₂ / v";
     document.getElementById('kpiLitersSub').innerText = `Säästetty polttoöljy: ${Math.round(scaledAnnualOilSaved).toLocaleString('fi-FI')} L / vuosi`;
 
-    document.getElementById('compHybridShare').innerText = `${oilReplacedPct.toFixed(0)} %`;
-    document.getElementById('compHybridPayback').innerText = `${paybackMonths.toFixed(1).replace('.', ',')} kuukautta`;
+    if (priceChartInstance) {
+        updateHistoryChart();
+    }
 }
 
-document.querySelectorAll('input, select').forEach(el => {
+document.querySelectorAll('#tab-calc input, #tab-calc select').forEach(el => {
     el.addEventListener('input', runSimulation);
     el.addEventListener('change', runSimulation);
 });
