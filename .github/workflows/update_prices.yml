@@ -1,10 +1,10 @@
-name: Päivitä sähkön ja polttoöljyn hinnat
+name: Päivitä sähkön (15min/1h) ja Nesteen polttoöljyn hinnat
 
 on:
   schedule:
-    # Ajetaan automaattisesti joka sunnuntai klo 16:00 UTC (klo 18/19 Suomen aikaa)
-    - cron: '0 16 * * 0'
-  workflow_dispatch: # Mahdollistaa päivityksen käynnistämisen myös napista ("Run workflow")
+    # Ajetaan päivittäin klo 12:15 UTC (klo 15:15 EEST kesäaikaan) ja 13:15 UTC (klo 15:15 EET talviaikaan)
+    - cron: '15 12,13 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,21 +13,26 @@ jobs:
   update-data:
     runs-on: ubuntu-latest
     steps:
-      - name: Hae repon tiedostot
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Aseta Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Aja hintojen päivitysskripti
+      - name: Install Playwright for Neste oil price polling
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Run price update script
         run: python paivita_hinnat.py
 
-      - name: Tallenna päivitetyt hintatiedostot repoon
+      - name: Commit and push updated JSON files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add spot_tuntihinnat.json oljy_hinnat.json
-          git diff --staged --quiet || git commit -m "Automaattinen hintadatan päivitys ($(date +'%Y-%m-%d'))"
+          git add spot_tuntihinnat.json spot_15min.json oljy_hinnat.json
+          git diff --staged --quiet || git commit -m "Auto-update spot (15m/1h) & Neste 21260 oil prices"
           git push
