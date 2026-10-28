@@ -216,11 +216,11 @@
         .chart-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 16px;
             align-items: center;
             justify-content: space-between;
             background: #f8fafc;
-            padding: 14px 18px;
+            padding: 16px 20px;
             border-radius: 12px;
             border: 1px solid var(--border);
             margin-bottom: 16px;
@@ -230,13 +230,18 @@
             border: 1px solid #cbd5e1;
             background: white;
             color: var(--text);
-            padding: 7px 13px;
+            padding: 7px 14px;
             border-radius: 8px;
             font-size: 0.86rem;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.15s;
         }
-        .btn-chip.active, .btn-chip:hover {
+        .btn-chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .btn-chip.active {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
@@ -245,10 +250,10 @@
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             color: var(--primary);
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: 0.86rem;
+            font-weight: 700;
         }
     </style>
 </head>
@@ -436,22 +441,23 @@
         <div class="card">
             <h2>Pörssisähkön ja lämmitysöljyn hintakehitys (Adaptiivinen 15 min – 1 kk tarkkuus)</h2>
             <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                Zoomaa graafia hiiren rullalla, maalaamalla tai alareunan liukusäätimellä. Kun zoomaat lähemmäs, graafi vaihtaa automaattisesti kuukausi-/viikko-/päivätasolta <strong>tuntitasolle (1 h)</strong> ja <strong>varttitasolle (15 min)</strong>. Päivä-, viikko- ja kuukausitasolla harmaa varjostus näyttää jakson sisäisen min–max-vaihteluvälin, jotta hintapiikit eivät huku keskiarvoon.
+                Valitse aikaväli pikavalinnasta tai vedä graafin alareunan <strong>zoom-liukusäätimestä</strong>. Kun tarkastelujakso on enintään 10 päivää, graafi näyttää <strong>15 minuutin tai 1 tunnin</strong> tarkat pörssisähköhinnat. Päivä-, viikko- ja kuukausitasolla vihreä varjostus näyttää jakson sisäisen min–max-vaihteluvälin.
             </p>
 
             <div class="chart-controls">
                 <div>
-                    <span style="font-size:0.82rem; font-weight:700; color:var(--muted); display:block; margin-bottom:5px;">AIKAVÄLIN PIKAVALINTA:</span>
-                    <div class="btn-group">
-                        <button class="btn-chip" onclick="setChartRange(7)">Viimeiset 7 vrk (15 min)</button>
-                        <button class="btn-chip" onclick="setChartRange(30)">Viimeiset 30 vrk (1 h)</button>
-                        <button class="btn-chip" onclick="setChartRange(365)">Viimeiset 12 kk</button>
-                        <button class="btn-chip active" onclick="setChartRange(9999)">Koko historia (2021–2026)</button>
+                    <span style="font-size:0.82rem; font-weight:700; color:var(--muted); display:block; margin-bottom:6px;">AIKAVÄLIN PIKAVALINTA:</span>
+                    <div class="btn-group" id="rangeBtnGroup">
+                        <button class="btn-chip" onclick="setChartRange(2, this)">Viimeiset 48 h (15 min)</button>
+                        <button class="btn-chip active" onclick="setChartRange(7, this)">Viimeiset 7 vrk (15 min / 1 h)</button>
+                        <button class="btn-chip" onclick="setChartRange(30, this)">Viimeiset 30 vrk (1 h)</button>
+                        <button class="btn-chip" onclick="setChartRange(365, this)">Viimeiset 12 kk</button>
+                        <button class="btn-chip" onclick="setChartRange(9999, this)">Koko historia (2021–2026)</button>
                     </div>
                 </div>
 
                 <div>
-                    <span style="font-size:0.82rem; font-weight:700; color:var(--muted); display:block; margin-bottom:5px;">TARKKUUS (RESOLUUTIO):</span>
+                    <span style="font-size:0.82rem; font-weight:700; color:var(--muted); display:block; margin-bottom:6px;">TARKKUUS (RESOLUUTIO):</span>
                     <div class="btn-group" id="resBtnGroup">
                         <button class="btn-chip active" data-res="auto" onclick="setChartRes('auto', this)">🔍 Automaattinen (Zoom)</button>
                         <button class="btn-chip" data-res="15m" onclick="setChartRes('15m', this)">15 min</button>
@@ -462,10 +468,10 @@
                     </div>
                 </div>
 
-                <div class="zoom-indicator" id="activeResBadge">Tarkkuus: Automaattinen</div>
+                <div class="zoom-indicator" id="activeResBadge">Tarkkuus: Ladataan...</div>
             </div>
 
-            <div id="priceChartContainer" style="width: 100%; height: 520px;"></div>
+            <div id="priceChartContainer" style="width: 100%; height: 540px;"></div>
         </div>
 
         <div class="card">
@@ -510,7 +516,9 @@ const daysInMonth = (y) => [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31,
 let priceChart = null;
 let oilChart = null;
 let selectedChartRes = 'auto';
-let currentZoomStart = 0;
+// Oletuksena näytetään viimeiset 7 vrk, jotta 15 min / 1 h käyrä näkyy heti
+let selectedRangeDays = 7;
+let currentZoomStart = 99.6;
 let currentZoomEnd = 100;
 
 function switchTab(tabId, btn) {
@@ -520,6 +528,7 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
     if (tabId === 'charts') {
         setTimeout(() => {
+            applyRangeDaysToZoom(selectedRangeDays);
             renderCharts();
             if (priceChart) priceChart.resize();
             if (oilChart) oilChart.resize();
@@ -578,6 +587,10 @@ async function initData() {
             }
         }
         runSimulation();
+        if (document.getElementById('tab-charts').classList.contains('active')) {
+            applyRangeDaysToZoom(selectedRangeDays);
+            renderCharts();
+        }
     } catch (err) {
         // Fallback data in use
     }
@@ -799,7 +812,6 @@ function getBaseHourlyArray() {
             val: val
         }));
     }
-    // Jos spot_tuntihinnat.json ei ole vielä latautunut, muodostetaan kuukausitason sarja FALLBACK_SPOTista
     const arr = [];
     for (let y = 2021; y <= 2026; y++) {
         for (let m = 1; m <= 12; m++) {
@@ -817,47 +829,53 @@ function aggregateSeries(mode, startMs, endMs) {
     const eff = (parseFloat(document.getElementById('efficiency').value) || 85) / 100;
     const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
 
-    // Jos 15m valittu tai zoomattu lähelle ja meillä on 15m dataa
+    // 1. Jos ollaan 15 min tarkkuudessa ja spot_15min.json kattaa tämän aikavälin
     if (mode === '15m' && spot15mPrices.length > 0 && spot15mStart) {
         const s15Ms = new Date(spot15mStart).getTime();
-        const pts = [];
-        for (let i = 0; i < spot15mPrices.length; i++) {
-            const t = s15Ms + i * 900000;
-            if (t >= startMs && t <= endMs) {
+        const e15Ms = s15Ms + (spot15mPrices.length - 1) * 900000;
+        if (endMs >= s15Ms && startMs <= e15Ms) {
+            const pts = [];
+            const firstIdx = Math.max(0, Math.floor((startMs - s15Ms) / 900000));
+            const lastIdx = Math.min(spot15mPrices.length - 1, Math.ceil((endMs - s15Ms) / 900000));
+            for (let i = firstIdx; i <= lastIdx; i++) {
+                const t = s15Ms + i * 900000;
                 const dt = new Date(t);
                 const oilEur = getOilPriceForDate(dt);
                 const oilBreakEven = ((oilEur * 100) / (10 * eff)) - pAdd;
                 pts.push({
-                    timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                    timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
                     avg: spot15mPrices[i],
                     min: spot15mPrices[i],
                     max: spot15mPrices[i],
                     oilBreakEven: Number(oilBreakEven.toFixed(2)),
-                    oilEur: oilEur
+                    oilEur: oilEur,
+                    actualRes: '15m'
                 });
             }
+            if (pts.length > 0) return pts;
         }
-        if (pts.length > 0) return pts;
     }
 
+    // 2. Jos 15m tai 1h on valittu (tai 15m pyydetty ajanjaksolle jolta on tuntidata), näytetään jokainen tunti
     const base = getBaseHourlyArray().filter(p => p.ms >= startMs && p.ms <= endMs);
-    if ( mode === '1h' || mode === '15m' ) {
+    if (mode === '1h' || mode === '15m') {
         return base.map(p => {
             const dt = new Date(p.ms);
-            // Jos 15m pyydettiin mutta ollaan vain tuntidatassa, luodaan 4 varttia/tunti tai näytetään tuntipisteet
             const oilEur = getOilPriceForDate(dt);
             const oilBreakEven = ((oilEur * 100) / (10 * eff)) - pAdd;
             return {
-                timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
                 avg: p.val,
                 min: p.val,
                 max: p.val,
                 oilBreakEven: Number(oilBreakEven.toFixed(2)),
-                oilEur: oilEur
+                oilEur: oilEur,
+                actualRes: '1h'
             };
         });
     }
 
+    // 3. Päivä-, viikko- tai kuukausikoonti (+ jakson sisäinen Min-Max vaihteluväli)
     const buckets = new Map();
     for (const p of base) {
         const dt = new Date(p.ms);
@@ -892,13 +910,35 @@ function aggregateSeries(mode, startMs, endMs) {
             min: Number(b.min.toFixed(2)),
             max: Number(b.max.toFixed(2)),
             oilBreakEven: Number(oilBreakEven.toFixed(2)),
-            oilEur: oilEur
+            oilEur: oilEur,
+            actualRes: mode
         });
     }
     return result;
 }
 
 let fullTimelineBounds = { minMs: new Date("2021-01-01T00:00:00").getTime(), maxMs: new Date().getTime() };
+
+function updateTimelineBounds() {
+    const base = getBaseHourlyArray();
+    if (base.length > 0) {
+        fullTimelineBounds.minMs = base[0].ms;
+        fullTimelineBounds.maxMs = base[base.length - 1].ms;
+    }
+}
+
+function applyRangeDaysToZoom(days) {
+    updateTimelineBounds();
+    if (days >= 9000) {
+        currentZoomStart = 0;
+        currentZoomEnd = 100;
+    } else {
+        const totalDays = Math.max(1, (fullTimelineBounds.maxMs - fullTimelineBounds.minMs) / 86400000);
+        const pct = Math.min(100, (days / totalDays) * 100);
+        currentZoomStart = Math.max(0, 100 - pct);
+        currentZoomEnd = 100;
+    }
+}
 
 function chooseAutoResolution(spanDays) {
     if (spanDays <= 10) return '15m';
@@ -909,22 +949,26 @@ function chooseAutoResolution(spanDays) {
 }
 
 function renderCharts() {
-    const base = getBaseHourlyArray();
-    if (base.length > 0) {
-        fullTimelineBounds.minMs = base[0].ms;
-        fullTimelineBounds.maxMs = base[base.length - 1].ms;
-    }
+    updateTimelineBounds();
 
     const totalSpanMs = fullTimelineBounds.maxMs - fullTimelineBounds.minMs;
     const viewStartMs = fullTimelineBounds.minMs + (totalSpanMs * currentZoomStart) / 100.0;
     const viewEndMs = fullTimelineBounds.minMs + (totalSpanMs * currentZoomEnd) / 100.0;
-    const spanDays = (viewEndMs - viewStartMs) / 86400000;
+    const spanDays = Math.max(0.5, (viewEndMs - viewStartMs) / 86400000);
 
-    const effRes = selectedChartRes === 'auto' ? chooseAutoResolution(spanDays) : selectedChartRes;
-    const resNames = { '15m': '15 min (Varttihinnat)', '1h': '1 tunti (Tuntihinnat)', '1d': 'Päivätaso (+ Min/Max)', '1w': 'Viikkotaso (+ Min/Max)', '1m': 'Kuukausitaso (+ Min/Max)' };
-    document.getElementById('activeResBadge').innerText = `Tarkkuus: ${resNames[effRes] || effRes}`;
+    const requestedRes = selectedChartRes === 'auto' ? chooseAutoResolution(spanDays) : selectedChartRes;
+    const dataPts = aggregateSeries(requestedRes, viewStartMs, viewEndMs);
+    const actualRes = (dataPts.length > 0 && dataPts[0].actualRes) ? dataPts[0].actualRes : requestedRes;
 
-    const dataPts = aggregateSeries(effRes, viewStartMs, viewEndMs);
+    const resNames = {
+        '15m': `15 min varttihinnat (${dataPts.length} pistettä)`,
+        '1h': `1 h tuntihinnat (${dataPts.length} tuntia)`,
+        '1d': `Päivätaso + Min/Max (${dataPts.length} pv)`,
+        '1w': `Viikkotaso + Min/Max (${dataPts.length} vko)`,
+        '1m': `Kuukausitaso + Min/Max (${dataPts.length} kk)`
+    };
+    document.getElementById('activeResBadge').innerText = `Näytetään: ${resNames[actualRes] || actualRes}`;
+
     const xLabels = dataPts.map(p => p.timeStr);
     const avgVals = dataPts.map(p => p.avg);
     const minVals = dataPts.map(p => p.min);
@@ -935,7 +979,7 @@ function renderCharts() {
         priceChart = echarts.init(document.getElementById('priceChartContainer'));
     }
 
-    const showBand = (effRes === '1d' || effRes === '1w' || effRes === '1m');
+    const showBand = (actualRes === '1d' || actualRes === '1w' || actualRes === '1m');
 
     priceChart.setOption({
         tooltip: {
@@ -947,7 +991,7 @@ function renderCharts() {
                 let html = `<strong>${pt.timeStr}</strong><br/>`;
                 html += `⚡ Spot-hinta: <strong>${pt.avg.toFixed(2)} snt/kWh</strong><br/>`;
                 if (showBand) {
-                    html += `↕️ Vaihteluväli (15m/1h): <strong>${pt.min.toFixed(2)} … ${pt.max.toFixed(2)} snt/kWh</strong><br/>`;
+                    html += `↕️ Vaihteluväli (tunnit/vartit): <strong>${pt.min.toFixed(2)} … ${pt.max.toFixed(2)} snt/kWh</strong><br/>`;
                 }
                 html += `🛢️ Öljyn kannattavuusraja: <strong>${pt.oilBreakEven.toFixed(2)} snt/kWh</strong> (Öljy ${pt.oilEur.toFixed(2)} €/l)`;
                 return html;
@@ -957,7 +1001,21 @@ function renderCharts() {
             data: ['Spot-hinta (snt/kWh)', 'Öljyn kannattavuusraja (snt/kWh)', 'Min–Max vaihteluväli'],
             top: 0
         },
-        grid: { left: 55, right: 30, top: 40, bottom: 40 },
+        grid: { left: 55, right: 30, top: 40, bottom: 75 },
+        dataZoom: [
+            {
+                type: 'inside',
+                start: 0,
+                end: 100
+            },
+            {
+                type: 'slider',
+                start: 0,
+                end: 100,
+                bottom: 12,
+                height: 26
+            }
+        ],
         xAxis: { type: 'category', data: xLabels, boundaryGap: false },
         yAxis: {
             type: 'value',
@@ -979,7 +1037,7 @@ function renderCharts() {
                 type: 'line',
                 data: showBand ? spreadVals : [],
                 lineStyle: { opacity: 0 },
-                areaStyle: { color: 'rgba(0, 196, 154, 0.18)' },
+                areaStyle: { color: 'rgba(0, 196, 154, 0.22)' },
                 stack: 'range-band',
                 symbol: 'none',
                 silent: true
@@ -987,9 +1045,10 @@ function renderCharts() {
             {
                 name: 'Spot-hinta (snt/kWh)',
                 type: 'line',
+                step: (actualRes === '15m' || actualRes === '1h') ? 'end' : false,
                 data: avgVals,
                 smooth: false,
-                showSymbol: effRes === '1m',
+                showSymbol: dataPts.length <= 48,
                 lineStyle: { width: 2, color: '#00205b' },
                 itemStyle: { color: '#00205b' }
             },
@@ -1046,25 +1105,25 @@ function renderOilHistoryChart() {
     });
 }
 
-function setChartRange(days) {
-    document.querySelectorAll('.chart-controls .btn-group:first-child .btn-chip').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    if (days >= 9000) {
-        currentZoomStart = 0;
-        currentZoomEnd = 100;
-    } else {
-        const totalDays = Math.max(1, (fullTimelineBounds.maxMs - fullTimelineBounds.minMs) / 86400000);
-        const pct = Math.min(100, (days / totalDays) * 100);
-        currentZoomStart = Math.max(0, 100 - pct);
-        currentZoomEnd = 100;
-    }
+function setChartRange(days, btn) {
+    selectedRangeDays = days;
+    document.querySelectorAll('#rangeBtnGroup .btn-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    // Palautetaan samalla tarkkuus "Automaattinen (Zoom)" -tilaan, jotta 7 vrk näyttää heti 15m/1h käyrän!
+    selectedChartRes = 'auto';
+    document.querySelectorAll('#resBtnGroup .btn-chip').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-res') === 'auto');
+    });
+
+    applyRangeDaysToZoom(days);
     renderCharts();
 }
 
 function setChartRes(res, btn) {
     selectedChartRes = res;
     document.querySelectorAll('#resBtnGroup .btn-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     renderCharts();
 }
 
