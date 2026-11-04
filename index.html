@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Älykäs Hybridilämpö – Laskuri & Hintagraafit</title>
+    <title>Älykäs Hybridilämpö – Laskuri, Hintaseuranta & Toteutusopas</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         :root {
@@ -255,6 +255,34 @@
             font-size: 0.86rem;
             font-weight: 700;
         }
+        /* Tietopankin erikoislaatikot */
+        .info-callout {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-left: 5px solid #d97706;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            color: #92400e;
+            margin: 16px 0;
+        }
+        .diagram-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        .step-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -263,7 +291,7 @@
     <div class="header-card">
         <div class="header-top">
             <div>
-                <h1>Älykäs Hybridilämpö – Laskuri & Hintaseuranta</h1>
+                <h1>Älykäs Hybridilämpö – Laskuri & Tietopankki</h1>
                 <p>Öljykattilan sähkövastuksen pörssisähköohjaus (data 2021–2026 + Neste 21260 seuranta)</p>
             </div>
             <div class="status-badge" id="dataStatusBadge">✅ Valmis (2021–2026 data ladattu)</div>
@@ -271,6 +299,7 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="switchTab('calc', this)">📊 Säästölaskuri & Konkretia</button>
             <button class="nav-tab" onclick="switchTab('charts', this)">📈 Hintagraafit & 15 min Zoom</button>
+            <button class="nav-tab" onclick="switchTab('guide', this)">📖 Toteutusopas & Kytkentä</button>
         </div>
     </div>
 
@@ -387,8 +416,8 @@
                                 <span>Öljypolttimen termostaatti on asetettu ~70 asteeseen ja sähkövastuksen ~80 asteeseen. Kun sähkö on halpaa, vastus pitää kattilan 80 asteessa eikä poltin käynnisty.</span>
                             </div>
                             <div class="ref-item">
-                                <strong>Shelly Pro 3 + Tuntikeskiarvo</strong>
-                                <span>Shelly hakee pörssisähkön hinnan ja laskee kullekin tunnille keskiarvon. Tämä säästää laitteen muistia ja vähentää kontaktorin turhaa pätkimistä.</span>
+                                <strong>Shelly Pro + 3-vaihekontaktori</strong>
+                                <span>Shelly ohjaa vain pientä kontaktorin kelaa. Kontaktori kytkee järeän 6 kW 3-vaihevirran ilman Shellyn lämpenemistä.</span>
                             </div>
                             <div class="ref-item">
                                 <strong>Automaattinen pakkasvarmistus</strong>
@@ -416,7 +445,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>Älykäs Hybridiohjaus (Shelly Pro 3)</strong></td>
+                                <td><strong>Älykäs Hybridiohjaus (Shelly + Kontaktori)</strong></td>
                                 <td><strong>n. 270 – 590 €</strong></td>
                                 <td id="compHybridShare">60 – 80 %</td>
                                 <td><strong style="color:var(--accent-dark);" id="compHybridPayback">2 – 6 kk</strong></td>
@@ -482,6 +511,133 @@
             <div id="oilChartContainer" style="width: 100%; height: 340px;"></div>
         </div>
     </div>
+
+    <!-- SIVU 3: TIETOPANKKI & TOTEUTUSOPAS -->
+    <div id="tab-guide" class="tab-view">
+        <div class="card">
+            <h2>Toteutusopas: Öljykattilan älykäs sähköohjaus</h2>
+            <p style="color:var(--muted); font-size:0.95rem; margin-top:0;">
+                Käytännönläheinen ohjeistus omakotiasujalle ja sähköasentajalle: miten olemassa oleva öljykattila valjastetaan pörssisähkölle ilman kalliita remontteja.
+            </p>
+
+            <div class="info-callout">
+                ⚠️ <strong>Sähköturvallisuus ja asennusoikeudet:</strong> Ryhmäkeskuksen muutostyöt, kontaktorin lisäys ja 400 V 3-vaihekaapelointi kattilan vastukselle ovat <strong>luvanvaraisia sähkötöitä</strong>, jotka tulee teettää valtuutetulla sähköasentajalla. Laitteen Wi-Fi-yhdistäminen ja ohjausrajojen asettaminen ovat käyttäjän omaa työtä.
+            </div>
+
+            <h3>1. Komponentit & Kustannusarvio (~270 €)</h3>
+            <p>Lähes kaikissa suomalaisissa öljykattiloissa (esim. Jäspi, Arimax, Högfors) on tehtaalta valmiina 6 kW (tai 9 kW) sähkövastuslaippa. Järjestelmää varten tarvitaan vain seuraavat lisälaitteet:</p>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Komponentti</th>
+                        <th>Malli / Esimerkki</th>
+                        <th>Tehtävä</th>
+                        <th>Arviohinta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Älyrele (DIN-kisko)</strong></td>
+                        <td>Shelly Pro 1 tai Shelly Pro 3</td>
+                        <td>Hakee pörssisähkön hinnan ja kytkee ohjaussignaalin (230 V) päälle halvoille tunneille.</td>
+                        <td>n. 65 – 110 €</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3-vaihekontaktori</strong></td>
+                        <td>4-napainen 25A AC-1 (esim. Hager ESC425S tai ABB EN25)</td>
+                        <td>Kytkee turvallisesti 6 kW (3x8,7 A) päävirran vastukselle Shellyn antaman pienen kelakäskyn mukaan.</td>
+                        <td>n. 35 – 55 €</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ohjaussulake</strong></td>
+                        <td>Johdonsuojakatkaisija 1P B6A / B10A</td>
+                        <td>Suojaa Shellyn ja kontaktorin kelan 230 V ohjausvirtapiirin.</td>
+                        <td>n. 8 – 15 €</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sähköasennustyö</strong></td>
+                        <td>Valtuutettu sähköurakoitsija (n. 1–2 h)</td>
+                        <td>Moduulien asennus keskukseen, kaapelointi ja mittaukset (kotitalousvähennyskelpoinen).</td>
+                        <td>n. 100 – 160 €</td>
+                    </tr>
+                    <tr>
+                        <td><strong>YHTEENSÄ</strong></td>
+                        <td colspan="2"><strong>Täysin toimiva hybridilämmitysjärjestelmä</strong></td>
+                        <td><strong>n. 210 – 340 € (keskim. ~270 €)</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>2. Termostaatti-ikkunan periaate (70 °C / 80 °C)</h3>
+            <p>
+                Ratkaisun suurin etu on se, että se ei vaadi öljypolttimen turvapiirin peukalointia tai monimutkaista rinnakkaisohjausta. Järjestelmä perustuu yksinkertaiseen <strong>lämpötilahierarkiaan</strong>:
+            </p>
+
+            <div class="diagram-box">
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <span class="step-badge">80 °C</span> <strong>Sähkövastuksen termostaatti:</strong>
+                        <div style="color:var(--muted); font-size:0.88rem; margin-top:2px;">
+                            Asetetaan kattilan sähkövastuksen mekaaninen termostaatti 80 asteeseen. Kun pörssisähkö on halpaa, Shelly vetää kontaktorin kiinni ja vastus pitää kattilan veden 80-asteisena.
+                        </div>
+                    </div>
+                    <div>
+                        <span class="step-badge" style="background:var(--warning);">70 °C</span> <strong>Öljypolttimen oma termostaatti:</strong>
+                        <div style="color:var(--muted); font-size:0.88rem; margin-top:2px;">
+                            Asetetaan öljypolttimen oma kattilatermostaatti 70 asteeseen. Koska kattilavesi on sähköllä jo 80-asteista, öljypolttimen termostaatti ei koskaan sulkeudu – poltin ei käynnisty eikä polta tippaakaan öljyä.
+                        </div>
+                    </div>
+                    <div>
+                        <span class="step-badge" style="background:var(--accent-dark);">Pakkasvarmistus</span> <strong>Automaattinen rinnakkaiskäyttö:</strong>
+                        <div style="color:var(--muted); font-size:0.88rem; margin-top:2px;">
+                            Jos talvella tulee -25 °C pakkanen eikä 6 kW sähkövastus yksin jaksa pitää taloa lämpimänä, kattilan lämpötila alkaa laskea. Heti kun vesi jäähtyy 70 asteeseen, öljypoltin käynnistyy mekaanisesti avuksi ja nostaa lämmön takaisin. Mitään ei jäädy eikä mikään automaatiovika voi katkaista lämpöä.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>3. Kytkentäarkkitehtuuri: Päävirtapiiri vs. Ohjauspiiri</h3>
+            <p>
+                Älä koskaan kytke 6 kW sähkövastusta suoraan älyreleen läpi. Vaikka releen kyljessä lukisi 16 A, 3-vaiheisen jatkuvan kuorman kytkeminen kuumentaa pientä moduulia. Kontaktorilla tehty kytkentä jakaa työn kahteen selkeään osaan:
+            </p>
+
+            <div class="ref-grid" style="margin-top:14px;">
+                <div class="ref-item" style="border-left:4px solid #8b5cf6;">
+                    <strong style="color:#6d28d9;">1. Päävirtapiiri (400 V 3-vaihe)</strong>
+                    <span style="font-size:0.88rem; color:#334155;">
+                        • Ryhmäkeskuksen 3x16A johdonsuojalta tuodaan L1, L2 ja L3 kontaktorin yläliittimiin (1, 3, 5).<br>
+                        • Kontaktorin alaliittimiltä (2, 4, 6) viedään 3-vaihesyöttö kattilan sähkövastukselle.<br>
+                        • Nolla (N) ja suojamaa (PE) kytketään suoraan vastukselle.
+                    </span>
+                </div>
+                <div class="ref-item" style="border-left:4px solid #e67e22;">
+                    <strong style="color:#c2410c;">2. Ohjauspiiri (230 V 1-vaihe)</strong>
+                    <span style="font-size:0.88rem; color:#334155;">
+                        • Suojataan erillisellä 6A/10A sulakkeella.<br>
+                        • Vaihe L viedään Shellyn syöttöön ja releen tuloon (I1).<br>
+                        • Shellyn relelähtö (O1) viedään kontaktorin kelaliittimeen A1.<br>
+                        • Nollajohdin N viedään kontaktorin kelaliittimeen A2 ja Shellyn N-liittimeen.<br>
+                        • <em>Kuorma Shellyn releelle on vain kelan ~3 wattia!</em>
+                    </span>
+                </div>
+            </div>
+
+            <h3>4. Huoltovarmuus: 12 tunnin lämmitysturva ~160 Wh/h teholla</h3>
+            <p>
+                Yksi vanhan öljylämmitysjärjestelmän suurimmista ja usein unohdetuista vahvuuksista on sen <strong>erittäin pieni sähkönkulutus</strong>, kun sitä ajetaan öljyllä:
+            </p>
+            <ul>
+                <li>Öljypoltin (käydessään): n. 90 – 120 W</li>
+                <li>Moderni A-luokan kiertovesipumppu: n. 15 – 35 W</li>
+                <li>Shelly-ohjaus ja säätölaitteet: n. 5 W</li>
+                <li><strong>Kokonaiskulutus öljyllä lämmitettäessä: vain n. 140 – 180 W</strong> (keskimäärin ~160 Wh/h).</li>
+            </ul>
+            <p>
+                Tämä tarkoittaa, että tavallinen kevyt <strong>2 kWh LiFePO4-varaaja tai akkuasema</strong> pystyy pitämään omakotitalon täydessä lämmössä ja lämmintä käyttövettä tuottaen <strong>yli 12 tunnin sähkökatkon ajan</strong> yhdellä ainoalla 1-vaiheisella pistorasiasyötöllä. Vertailun vuoksi: vastaavan kokoisen kiinteistön maalämpöpumppu tai ilmavesilämpöpumppu vaatii 3-vaiheisen sähkön ja 3 000 – 6 000 W jatkuvan tehon, jota ei voida järkevästi pyörittää ilman massiivista ja kallista akustoa.
+            </p>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -516,7 +672,6 @@ const daysInMonth = (y) => [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31,
 let priceChart = null;
 let oilChart = null;
 let selectedChartRes = 'auto';
-// Oletuksena näytetään viimeiset 7 vrk, jotta 15 min / 1 h käyrä näkyy heti
 let selectedRangeDays = 7;
 let currentZoomStart = 99.6;
 let currentZoomEnd = 100;
@@ -829,7 +984,6 @@ function aggregateSeries(mode, startMs, endMs) {
     const eff = (parseFloat(document.getElementById('efficiency').value) || 85) / 100;
     const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
 
-    // 1. Jos ollaan 15 min tarkkuudessa ja spot_15min.json kattaa tämän aikavälin
     if (mode === '15m' && spot15mPrices.length > 0 && spot15mStart) {
         const s15Ms = new Date(spot15mStart).getTime();
         const e15Ms = s15Ms + (spot15mPrices.length - 1) * 900000;
@@ -856,7 +1010,6 @@ function aggregateSeries(mode, startMs, endMs) {
         }
     }
 
-    // 2. Jos 15m tai 1h on valittu (tai 15m pyydetty ajanjaksolle jolta on tuntidata), näytetään jokainen tunti
     const base = getBaseHourlyArray().filter(p => p.ms >= startMs && p.ms <= endMs);
     if (mode === '1h' || mode === '15m') {
         return base.map(p => {
@@ -875,7 +1028,6 @@ function aggregateSeries(mode, startMs, endMs) {
         });
     }
 
-    // 3. Päivä-, viikko- tai kuukausikoonti (+ jakson sisäinen Min-Max vaihteluväli)
     const buckets = new Map();
     for (const p of base) {
         const dt = new Date(p.ms);
@@ -1110,7 +1262,6 @@ function setChartRange(days, btn) {
     document.querySelectorAll('#rangeBtnGroup .btn-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
 
-    // Palautetaan samalla tarkkuus "Automaattinen (Zoom)" -tilaan, jotta 7 vrk näyttää heti 15m/1h käyrän!
     selectedChartRes = 'auto';
     document.querySelectorAll('#resBtnGroup .btn-chip').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-res') === 'auto');
