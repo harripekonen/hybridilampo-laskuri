@@ -59,6 +59,7 @@
             gap: 8px;
             border-top: 1px solid rgba(255,255,255,0.15);
             padding-top: 12px;
+            flex-wrap: wrap;
         }
         .nav-tab {
             background: rgba(255,255,255,0.1);
@@ -464,12 +465,12 @@
         </div>
     </div>
 
-    <!-- SIVU 2: HINTAGRAAFIT & 15 MIN ZOOM -->
+    <!-- SIVU 2: YHDISTETTY HINTAGRAAFI & 15 MIN ZOOM -->
     <div id="tab-charts" class="tab-view">
         <div class="card">
             <h2>Pörssisähkön ja lämmitysöljyn hintakehitys (Adaptiivinen 15 min – 1 kk tarkkuus)</h2>
             <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                Valitse aikaväli pikavalinnasta tai vedä graafin alareunan <strong>zoom-liukusäätimestä</strong>. Kun tarkastelujakso on enintään 10 päivää, graafi näyttää <strong>15 minuutin tai 1 tunnin</strong> tarkat pörssisähköhinnat. Päivä-, viikko- ja kuukausitasolla vihreä varjostus näyttää jakson sisäisen min–max-vaihteluvälin.
+                Kaikki hinnat samalla aikajanalla: kun sininen pörssisähkökäyrä on öljyn kannattavuusrajan alapuolella, sähköllä lämmittäminen on öljyä halvempaa. Oikean reunan asteikko näyttää suoraan vastaavan polttoöljyn litrahinnan (€/l). <strong>Voit kytkeä käyriä päälle ja pois klikkaamalla graafin yläreunan selitteitä.</strong>
             </p>
 
             <div class="chart-controls">
@@ -499,15 +500,7 @@
                 <div class="zoom-indicator" id="activeResBadge">Tarkkuus: Ladataan...</div>
             </div>
 
-            <div id="priceChartContainer" style="width: 100%; height: 540px;"></div>
-        </div>
-
-        <div class="card">
-            <h2>Polttoöljyn hintahistoria (Tilastokeskus & Neste 21260 päiväseuranta, €/l)</h2>
-            <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                Tilastokeskuksen kuukausihinnat (2021–2026) sekä GitHub Actionsin suoraan Nesteen rajapinnasta päivittäin noutama tilaushinta (postinumero 21260, 1 000 L, kesälaatu).
-            </p>
-            <div id="oilChartContainer" style="width: 100%; height: 340px;"></div>
+            <div id="priceChartContainer" style="width: 100%; height: 580px;"></div>
         </div>
     </div>
 
@@ -625,7 +618,7 @@
 <script>
 let oilData = {
     "updated": "2026-11-10",
-    "current_price": 1.87,
+    "current_price": 1.8702,
     "monthly": {
         "2021": [0.86, 0.92, 0.96, 0.93, 0.97, 0.99, 1.01, 1.01, 1.03, 1.14, 1.15, 1.11],
         "2022": [1.18, 1.29, 2.06, 1.59, 1.74, 1.95, 1.78, 1.62, 1.73, 1.93, 1.80, 1.44],
@@ -634,7 +627,9 @@ let oilData = {
         "2025": [1.33, 1.32, 1.26, 1.18, 1.15, 1.17, 1.28, 1.22, 1.23, 1.20, 1.30, 1.22],
         "2026": [1.21, 1.27, 1.79, 2.03, 1.77, 1.67, 1.63, 1.78, 1.87, 1.87, 1.87, 1.87]
     },
-    "daily_neste": {}
+    "daily_neste": {
+        "2026-11-10": 1.8702
+    }
 };
 
 const BIN_EDGES = [2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25];
@@ -652,7 +647,6 @@ const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
 const daysInMonth = (y) => [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 let priceChart = null;
-let oilChart = null;
 let selectedChartRes = 'auto';
 let selectedRangeDays = 7;
 let currentZoomStart = 99.6;
@@ -668,7 +662,6 @@ function switchTab(tabId, btn) {
             applyRangeDaysToZoom(selectedRangeDays);
             renderCharts();
             if (priceChart) priceChart.resize();
-            if (oilChart) oilChart.resize();
         }, 50);
     }
 }
@@ -734,17 +727,34 @@ async function initData() {
     }
 }
 
-function getOilPriceForDate(dt) {
+function getStatOilPriceForDate(dt) {
     const yStr = String(dt.getFullYear());
     const mIdx = dt.getMonth();
-    const dStr = dt.toISOString().slice(0, 10);
-    if (oilData.daily_neste && oilData.daily_neste[dStr]) {
-        return oilData.daily_neste[dStr];
-    }
-    if (oilData.monthly && oilData.monthly[yStr]) {
-        return oilData.monthly[yStr][mIdx] || oilData.current_price || 1.87;
+    if (oilData.monthly && oilData.monthly[yStr] && oilData.monthly[yStr][mIdx] != null) {
+        return oilData.monthly[yStr][mIdx];
     }
     return oilData.current_price || 1.87;
+}
+
+function getNesteOilPriceForDate(dt) {
+    if (!oilData.daily_neste) return null;
+    const dStr = dt.toISOString().slice(0, 10);
+    if (oilData.daily_neste[dStr] != null) return oilData.daily_neste[dStr];
+    const keys = Object.keys(oilData.daily_neste).sort();
+    if (keys.length === 0) return null;
+    if (dStr >= keys[0]) {
+        let latest = oilData.daily_neste[keys[0]];
+        for (const k of keys) {
+            if (k <= dStr) latest = oilData.daily_neste[k];
+        }
+        return latest;
+    }
+    return null;
+}
+
+function getOilPriceForDate(dt) {
+    const neste = getNesteOilPriceForDate(dt);
+    return neste !== null ? neste : getStatOilPriceForDate(dt);
 }
 
 function runSimulation() {
@@ -966,6 +976,7 @@ function getBaseHourlyArray() {
 function aggregateSeries(mode, startMs, endMs) {
     const eff = (parseFloat(document.getElementById('efficiency').value) || 85) / 100;
     const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
+    const toBreakEven = (eur) => eur !== null ? Number((((eur * 100) / (10 * eff)) - pAdd).toFixed(2)) : null;
 
     if (mode === '15m' && spot15mPrices.length > 0 && spot15mStart) {
         const s15Ms = new Date(spot15mStart).getTime();
@@ -977,15 +988,17 @@ function aggregateSeries(mode, startMs, endMs) {
             for (let i = firstIdx; i <= lastIdx; i++) {
                 const t = s15Ms + i * 900000;
                 const dt = new Date(t);
-                const oilEur = getOilPriceForDate(dt);
-                const oilBreakEven = ((oilEur * 100) / (10 * eff)) - pAdd;
+                const statEur = getStatOilPriceForDate(dt);
+                const nesteEur = getNesteOilPriceForDate(dt);
                 pts.push({
                     timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
                     avg: spot15mPrices[i],
                     min: spot15mPrices[i],
                     max: spot15mPrices[i],
-                    oilBreakEven: Number(oilBreakEven.toFixed(2)),
-                    oilEur: oilEur,
+                    statBreakEven: toBreakEven(statEur),
+                    statEur: statEur,
+                    nesteBreakEven: toBreakEven(nesteEur),
+                    nesteEur: nesteEur,
                     actualRes: '15m'
                 });
             }
@@ -997,15 +1010,17 @@ function aggregateSeries(mode, startMs, endMs) {
     if (mode === '1h' || mode === '15m') {
         return base.map(p => {
             const dt = new Date(p.ms);
-            const oilEur = getOilPriceForDate(dt);
-            const oilBreakEven = ((oilEur * 100) / (10 * eff)) - pAdd;
+            const statEur = getStatOilPriceForDate(dt);
+            const nesteEur = getNesteOilPriceForDate(dt);
             return {
                 timeStr: dt.toLocaleString('fi-FI', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
                 avg: p.val,
                 min: p.val,
                 max: p.val,
-                oilBreakEven: Number(oilBreakEven.toFixed(2)),
-                oilEur: oilEur,
+                statBreakEven: toBreakEven(statEur),
+                statEur: statEur,
+                nesteBreakEven: toBreakEven(nesteEur),
+                nesteEur: nesteEur,
                 actualRes: '1h'
             };
         });
@@ -1037,15 +1052,17 @@ function aggregateSeries(mode, startMs, endMs) {
 
     const result = [];
     for (const [key, b] of buckets.entries()) {
-        const oilEur = getOilPriceForDate(b.dt);
-        const oilBreakEven = ((oilEur * 100) / (10 * eff)) - pAdd;
+        const statEur = getStatOilPriceForDate(b.dt);
+        const nesteEur = getNesteOilPriceForDate(b.dt);
         result.push({
             timeStr: key,
             avg: Number((b.sum / b.count).toFixed(2)),
             min: Number(b.min.toFixed(2)),
             max: Number(b.max.toFixed(2)),
-            oilBreakEven: Number(oilBreakEven.toFixed(2)),
-            oilEur: oilEur,
+            statBreakEven: toBreakEven(statEur),
+            statEur: statEur,
+            nesteBreakEven: toBreakEven(nesteEur),
+            nesteEur: nesteEur,
             actualRes: mode
         });
     }
@@ -1089,6 +1106,8 @@ function chooseAutoResolution(spanDays) {
 
 function renderCharts() {
     updateTimelineBounds();
+    const eff = (parseFloat(document.getElementById('efficiency').value) || 85) / 100;
+    const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
 
     const totalSpanMs = fullTimelineBounds.maxMs - fullTimelineBounds.minMs;
     const viewStartMs = fullTimelineBounds.minMs + (totalSpanMs * currentZoomStart) / 100.0;
@@ -1112,7 +1131,8 @@ function renderCharts() {
     const avgVals = dataPts.map(p => p.avg);
     const minVals = dataPts.map(p => p.min);
     const spreadVals = dataPts.map(p => Number((p.max - p.min).toFixed(2)));
-    const breakEvenVals = dataPts.map(p => p.oilBreakEven);
+    const statBreakVals = dataPts.map(p => p.statBreakEven);
+    const nesteBreakVals = dataPts.map(p => p.nesteBreakEven);
 
     if (!priceChart) {
         priceChart = echarts.init(document.getElementById('priceChartContainer'));
@@ -1132,35 +1152,49 @@ function renderCharts() {
                 if (showBand) {
                     html += `↕️ Vaihteluväli (tunnit/vartit): <strong>${pt.min.toFixed(2)} … ${pt.max.toFixed(2)} snt/kWh</strong><br/>`;
                 }
-                html += `🛢️ Öljyn kannattavuusraja: <strong>${pt.oilBreakEven.toFixed(2)} snt/kWh</strong> (Öljy ${pt.oilEur.toFixed(2)} €/l)`;
+                if (pt.nesteBreakEven !== null && pt.nesteEur !== null) {
+                    html += `🟧 Neste 21260 raja: <strong>${pt.nesteBreakEven.toFixed(2)} snt/kWh</strong> (Öljy <strong>${pt.nesteEur.toFixed(4)} €/l</strong>)<br/>`;
+                }
+                if (pt.statBreakEven !== null && pt.statEur !== null) {
+                    html += `🟪 Tilastokeskus raja: <strong>${pt.statBreakEven.toFixed(2)} snt/kWh</strong> (Öljy <strong>${pt.statEur.toFixed(2)} €/l</strong>)`;
+                }
                 return html;
             }
         },
         legend: {
-            data: ['Spot-hinta (snt/kWh)', 'Öljyn kannattavuusraja (snt/kWh)', 'Min–Max vaihteluväli'],
+            data: [
+                'Spot-hinta (snt/kWh)',
+                'Neste 21260 kannattavuusraja',
+                'Tilastokeskus kannattavuusraja',
+                'Min–Max vaihteluväli'
+            ],
             top: 0
         },
-        grid: { left: 55, right: 30, top: 40, bottom: 75 },
+        grid: { left: 60, right: 90, top: 45, bottom: 75 },
         dataZoom: [
-            {
-                type: 'inside',
-                start: 0,
-                end: 100
-            },
-            {
-                type: 'slider',
-                start: 0,
-                end: 100,
-                bottom: 12,
-                height: 26
-            }
+            { type: 'inside', start: 0, end: 100 },
+            { type: 'slider', start: 0, end: 100, bottom: 12, height: 26 }
         ],
         xAxis: { type: 'category', data: xLabels, boundaryGap: false },
-        yAxis: {
-            type: 'value',
-            name: 'snt / kWh',
-            axisLabel: { formatter: '{value} snt' }
-        },
+        yAxis: [
+            {
+                type: 'value',
+                name: 'Spot & Raja (snt/kWh)',
+                axisLabel: { formatter: '{value} snt' }
+            },
+            {
+                type: 'value',
+                name: 'Vastaava öljynhinta (€/l)',
+                position: 'right',
+                alignTicks: true,
+                axisLabel: {
+                    formatter: function (val) {
+                        const oilEur = ((val + pAdd) * 10 * eff) / 100.0;
+                        return oilEur.toFixed(2) + ' €/l';
+                    }
+                }
+            }
+        ],
         series: [
             {
                 name: 'MinBase',
@@ -1192,95 +1226,32 @@ function renderCharts() {
                 itemStyle: { color: '#00205b' }
             },
             {
-                name: 'Öljyn kannattavuusraja (snt/kWh)',
+                name: 'Neste 21260 kannattavuusraja',
                 type: 'line',
-                data: breakEvenVals,
-                smooth: true,
-                showSymbol: false,
-                lineStyle: { width: 2.5, type: 'dashed', color: '#e67e22' },
-                itemStyle: { color: '#e67e22' }
-            }
-        ]
-    }, true);
-
-    renderOilHistoryChart();
-}
-
-function renderOilHistoryChart() {
-    if (!oilChart) {
-        oilChart = echarts.init(document.getElementById('oilChartContainer'));
-    }
-
-    // 1. Tilastokeskuksen kuukausipisteet aikaleimoina [aika, hinta]
-    const statData = [];
-    for (let y = 2021; y <= 2026; y++) {
-        const arr = oilData.monthly[String(y)];
-        if (!arr) continue;
-        for (let m = 0; m < 12; m++) {
-            if (y === 2026 && m > 9) continue; // Ei piirretä tulevia kuukausia
-            // Kuukauden 15. päivä edustamaan kuukauden keskiarvoa
-            const dtStr = `${y}-${String(m + 1).padStart(2, '0')}-15`;
-            statData.push([dtStr, arr[m]]);
-        }
-    }
-
-    // 2. Nesteen päiväseuranta (Raisio 21260)
-    const nesteData = [];
-    if (oilData.daily_neste) {
-        // Järjestetään päivämäärän mukaan
-        const sortedDates = Object.keys(oilData.daily_neste).sort();
-        for (const dStr of sortedDates) {
-            nesteData.push([dStr, oilData.daily_neste[dStr]]);
-        }
-    }
-
-    oilChart.setOption({
-        tooltip: {
-            trigger: 'axis',
-            formatter: function (params) {
-                let html = `<strong>${params[0].value[0]}</strong><br/>`;
-                params.forEach(p => {
-                    html += `${p.marker} ${p.seriesName}: <strong>${Number(p.value[1]).toFixed(4)} €/l</strong><br/>`;
-                });
-                return html;
-            }
-        },
-        legend: {
-            data: ['Tilastokeskus (Koko maa, kk-keskiarvo)', 'Neste 21260 (Raisio, päivähinta)'],
-            top: 0
-        },
-        grid: { left: 55, right: 30, top: 35, bottom: 40 },
-        xAxis: {
-            type: 'time',
-            axisLabel: {
-                formatter: '{yyyy}-{MM}'
-            }
-        },
-        yAxis: {
-            type: 'value',
-            name: '€ / litra',
-            min: 0.7,
-            axisLabel: { formatter: '{value} €' }
-        },
-        series: [
-            {
-                name: 'Tilastokeskus (Koko maa, kk-keskiarvo)',
-                type: 'line',
-                data: statData,
-                smooth: true,
-                showSymbol: false,
-                lineStyle: { width: 2.5, color: '#64748b' },
-                itemStyle: { color: '#64748b' }
-            },
-            {
-                name: 'Neste 21260 (Raisio, päivähinta)',
-                type: 'line',
-                data: nesteData,
+                data: nesteBreakVals,
                 smooth: false,
-                showSymbol: true,
-                symbolSize: 8,
+                showSymbol: dataPts.length <= 60,
                 lineStyle: { width: 3, color: '#e67e22' },
                 itemStyle: { color: '#e67e22' }
+            },
+            {
+                name: 'Tilastokeskus kannattavuusraja',
+                type: 'line',
+                data: statBreakVals,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 2, type: 'dashed', color: '#8b5cf6' },
+                itemStyle: { color: '#8b5cf6' }
+            },
+            {
+                name: 'OilScaleHelper',
+                type: 'line',
+                yAxisIndex: 1,
+                data: avgVals,
+                lineStyle: { opacity: 0 },
+                symbol: 'none',
+                silent: true,
+                tooltip: { show: false }
             }
         ]
     }, true);
@@ -1320,7 +1291,6 @@ document.querySelectorAll('input, select').forEach(el => {
 
 window.addEventListener('resize', () => {
     if (priceChart) priceChart.resize();
-    if (oilChart) oilChart.resize();
 });
 
 initData();
