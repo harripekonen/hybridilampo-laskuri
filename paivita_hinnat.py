@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import urllib.error
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -14,12 +15,21 @@ OIL_FILE = "oljy_hinnat.json"
 
 
 def fetch_json(url, headers=None, data=None):
-    hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json"}
+    hdrs = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json"
+    }
+    if data is not None:
+        hdrs["Content-Type"] = "application/json"
     if headers:
         hdrs.update(headers)
     req = urllib.request.Request(url, data=data, headers=hdrs)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {e.code}: {err_body[:300]}") from e
 
 
 def build_from_local_csv():
@@ -182,9 +192,6 @@ def update_spot_prices():
 
 
 def fetch_neste_oil_price(postal_code="21260", product_number="160360"):
-    """
-    Hakee Nesteen suorasta REST APIsta päivän hinnan (kesälaatu = 160360, postinumero = 21260).
-    """
     url = f"https://www.neste.fi/api/proxy/get-prices?postalCode={postal_code}&productNumbers={product_number}&quantities=0&installments=1"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -208,26 +215,45 @@ def update_oil_prices():
         with open(OIL_FILE, "r", encoding="utf-8") as f:
             oil_data = json.load(f)
     else:
-        oil_data = {"updated": "2026-10-28", "current_price": 2.01, "monthly": {}, "daily_neste": {}}
+        oil_data = {"updated": "2026-11-10", "current_price": 1.87, "monthly": {}, "daily_neste": {}}
 
-    # 1. Tilastokeskuksen kuukausihinnat
+    # 1. Tilastokeskuksen kuukausihinnat (PxWeb API)
     px_url = "https://pxdata.stat.fi/PxWeb/api/v1/fi/StatFin/khi/statfin_khi_pxt_11xx.px"
     try:
         meta = fetch_json(px_url)
         variables = meta.get("variables", [])
-        month_var = next(v for v in variables if v["code"] == "Kuukausi")
-        comm_var = next(v for v in variables if v["code"] == "Hyödyke")
-        info_var = next(v for v in variables if v["code"] == "Tiedot")
+        query_items = []
+        months_from_2021 = []
 
-        oil_code = next(val for val, txt in zip(comm_var["values"], comm_var["valueTexts"]) if "Kevyt polttoöljy" in txt)
-        months_from_2021 = [m for m in month_var["values"] if m >= "2021M01"]
+        for var in variables:
+            code = var["code"]
+            vals = var.get("values", [])
+            texts = var.get("valueTexts", [])
+
+            if code == "Kuukausi":
+                months_from_2021 = [m for m in vals if m >= "2021M01"]
+                query_items.append({
+                    "code": code,
+                    "selection": {"filter": "item", "values": months_from_2021}
+                })
+            elif any(k in code.lower() for k in ["hyödyke", "tuote", "commodity"]):
+                oil_code = next(
+                    (v for v, t in zip(vals, texts) if "polttoöljy" in t.lower()),
+                    vals[0]
+                )
+                query_items.append({
+                    "code": code,
+                    "selection": {"filter": "item", "values": [oil_code]}
+                })
+            else:
+                # Valitaan oletuksena ensimmäinen arvo muille muuttujille (esim. Tiedot = Keskihinta)
+                query_items.append({
+                    "code": code,
+                    "selection": {"filter": "item", "values": [vals[0]]}
+                })
 
         query_payload = {
-            "query": [
-                {"code": "Kuukausi", "selection": {"filter": "item", "values": months_from_2021}},
-                {"code": "Hyödyke", "selection": {"filter": "item", "values": [oil_code]}},
-                {"code": "Tiedot", "selection": {"filter": "item", "values": [info_var["values"][0]]}}
-            ],
+            "query": query_items,
             "response": {"format": "json-stat2"}
         }
 
@@ -235,18 +261,21 @@ def update_oil_prices():
         values = res.get("value", [])
 
         monthly_dict = oil_data.get("monthly", {})
-        latest_valid_price = oil_data.get("current_price", 2.01)
+        latest_valid_price = oil_data.get("current_price", 1.87)
+        updated_months = 0
 
         for m_code, val in zip(months_from_2021, values):
-            if val is not None and val > 0:
+            if val is not None and float(val) > 0:
                 year_str, month_str = m_code.split("M")
                 m_idx = int(month_str) - 1
                 if year_str not in monthly_dict:
                     monthly_dict[year_str] = [latest_valid_price] * 12
                 monthly_dict[year_str][m_idx] = round(float(val), 2)
                 latest_valid_price = round(float(val), 2)
+                updated_months += 1
 
         oil_data["monthly"] = monthly_dict
+        print(f"Tilastokeskuksen kuukausihinnat päivitetty ({updated_months} kuukautta).")
     except Exception as e:
         print(f"Tilastokeskuksen päivitys ohitettiin ({e}).")
 
@@ -257,14 +286,10 @@ def update_oil_prices():
 
     if neste_price:
         daily_neste[today_str] = neste_price
-        oil_data["current_price"] = round(neste_price, 2)
-        cur_y = str(datetime.now(FIN_TZ).year)
-        cur_m = datetime.now(FIN_TZ).month - 1
-        if cur_y in oil_data.get("monthly", {}):
-            oil_data["monthly"][cur_y][cur_m] = round(neste_price, 2)
+        oil_data["current_price"] = round(neste_price, 4)
         print(f"Päivitetty Nesteen hinta {today_str}: {neste_price} €/l")
     else:
-        print("Huom: Nesteen hintaa ei saatu haettua tänään, ei lisätty virheellistä merkintää.")
+        print("Huom: Nesteen hintaa ei saatu haettua tänään.")
 
     oil_data["daily_neste"] = daily_neste
     oil_data["neste_config"] = {"postal_code": "21260", "volume_l": 1000, "grade": "kesälaatu (160360)"}
