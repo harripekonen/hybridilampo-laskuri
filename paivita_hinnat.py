@@ -2,7 +2,6 @@
 import glob
 import json
 import os
-import re
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -14,13 +13,12 @@ SPOT_15M_FILE = "spot_15min.json"
 OIL_FILE = "oljy_hinnat.json"
 
 
-def fetch_json(url, data=None):
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"User-Agent": "Hybridilampo-Laskuri-Updater/2.0", "Content-Type": "application/json"}
-    )
-    with urllib.request.urlopen(req, timeout=45) as resp:
+def fetch_json(url, headers=None, data=None):
+    hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    req = urllib.request.Request(url, data=data, headers=hdrs)
+    with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -111,7 +109,6 @@ def update_spot_prices():
     start_naive = datetime.fromisoformat(start_str).replace(tzinfo=None)
     next_naive = start_naive + timedelta(hours=len(prices))
     next_dt = next_naive.replace(tzinfo=FIN_TZ)
-    # Haetaan huomisenkin tunnit (klo 15 jälkeen saatavilla seuraavan vrk loppuun)
     target_end_dt = (datetime.now(FIN_TZ) + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     q15_all = csv_q15_map or {}
@@ -159,18 +156,15 @@ def update_spot_prices():
         json.dump(spot_data, f, separators=(",", ":"))
     print(f"Tallennettu {SPOT_FILE} ({len(prices)} tuntia).")
 
-    # Tallennetaan viimeisen 365 päivän 15 min data nopeaa graafizoomausta varten
     if q15_all:
         max_15_dt = max(q15_all.keys())
-        min_15_dt = max(min(q15_all.keys()), max_15_dt - timedelta(days=365))
-        min_15_dt = min_15_dt.replace(minute=0, second=0, microsecond=0)
+        min_15_dt = max(min(q15_all.keys()), max_15_dt - timedelta(days=365)).replace(minute=0, second=0, microsecond=0)
         q15_list = []
         cur_15 = min_15_dt
         last_v = 8.0
         while cur_15 <= max_15_dt:
             v = q15_all.get(cur_15)
             if v is None:
-                # Jos kyseiseltä ajalta on vain tuntihinta, käytetään sen tunnin arvoa
                 v = q15_all.get(cur_15.replace(minute=0), last_v)
             last_v = v
             q15_list.append(round(float(v), 2))
@@ -187,98 +181,26 @@ def update_spot_prices():
         print(f"Tallennettu {SPOT_15M_FILE} ({len(q15_list)} varttia alkaen {q15_obj['start']}).")
 
 
-def poll_neste_oil_price(postal_code="21260", liters="1000"):
+def fetch_neste_oil_price(postal_code="21260", product_number="160360"):
     """
-    Pollaa Nesteen lämmitysöljylaskurista päivän hinnan (1000 L, postinumero 21260, kesälaatu).
-    Käyttää Playwrightin headless Chromiumia, jotta React/JS-tilauskomponentti latautuu oikein.
+    Hakee Nesteen suorasta REST APIsta päivän hinnan (kesälaatu = 160360, postinumero = 21260).
     """
+    url = f"https://www.neste.fi/api/proxy/get-prices?postalCode={postal_code}&productNumbers={product_number}&quantities=0&installments=1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.neste.fi/yksityisille/tuotteet/lammitysoljyt/lammitysoljytilaus"
+    }
     try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        print("Playwright ei ole asennettuna, ohitetaan Nesteen suora pollaus.")
-        return None
-
-    url = "https://www.neste.fi/yksityisille/tuotteet/lammitysoljyt/lammitysoljytilaus"
-    print(f"Pollataan Nesteen hinta ({postal_code}, {liters} L, kesälaatu)...")
-    found_price = None
-    grade_note = "kesälaatu"
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(locale="fi-FI")
-            page = context.new_page()
-
-            api_responses = []
-            page.on("response", lambda resp: api_responses.append(resp) if "json" in resp.headers.get("content-type", "") else None)
-
-            page.goto(url, wait_until="networkidle", timeout=45000)
-            page.wait_for_timeout(2000)
-
-            # Hyväksytään evästeet tarvittaessa
-            for btn_text in ["Hyväksy kaikki", "Hyväksy", "Salli kaikki"]:
-                try:
-                    btn = page.get_by_role("button", name=re.compile(btn_text, re.I))
-                    if btn.count() > 0 and btn.first.is_visible():
-                        btn.first.click(timeout=2000)
-                        page.wait_for_timeout(500)
-                        break
-                except Exception:
-                    pass
-
-            # Syötetään postinumero 21260 ja määrä 1000
-            inputs = page.locator("input[type='text'], input[type='number'], input[type='tel']")
-            for i in range(inputs.count()):
-                inp = inputs.nth(i)
-                placeholder = (inp.get_attribute("placeholder") or "") + (inp.get_attribute("name") or "") + (inp.get_attribute("id") or "")
-                if any(k in placeholder.lower() for k in ["posti", "zip", "postal"]):
-                    inp.fill(postal_code)
-                elif any(k in placeholder.lower() for k in ["määrä", "litra", "amount", "quantity", "volume"]):
-                    inp.fill(liters)
-
-            # Valitaan kesälaatu, jos valittavissa
-            try:
-                summer_opt = page.get_by_text(re.compile(r"kesälaatu", re.I))
-                if summer_opt.count() > 0 and summer_opt.first.is_visible():
-                    summer_opt.first.click(timeout=2000)
-            except Exception:
-                pass
-
-            # Painetaan Laske hinta / Näytä hinta -painiketta, jos sellainen on
-            for action_txt in ["Laske", "Hae hinta", "Näytä hinta", "Jatka"]:
-                try:
-                    b = page.get_by_role("button", name=re.compile(action_txt, re.I))
-                    if b.count() > 0 and b.first.is_visible():
-                        b.first.click(timeout=2000)
-                        page.wait_for_timeout(2500)
-                        break
-                except Exception:
-                    pass
-
-            body_text = page.inner_text("body")
-
-            # Etsitään litrahinta (esim. "1,68 €/l" tai "1.68 €/l" tai kokonaishinta 1000 litralle "1 680,00 €")
-            per_liter_matches = re.findall(r"(\d[.,]\d{2,3})\s*€\s*/\s*l", body_text, re.I)
-            if per_liter_matches:
-                val = float(per_liter_matches[0].replace(",", "."))
-                if 0.80 <= val <= 3.50:
-                    found_price = round(val, 3)
-
-            if not found_price:
-                total_matches = re.findall(r"([12]\s?\d{3}[.,]\d{2})\s*€", body_text)
-                for m in total_matches:
-                    tot_val = float(m.replace(" ", "").replace("\xa0", "").replace(",", "."))
-                    if 800 <= tot_val <= 3500:
-                        found_price = round(tot_val / 1000.0, 3)
-                        break
-
-            browser.close()
+        data = fetch_json(url, headers=headers)
+        item = data.get(str(product_number), {})
+        price = item.get("unitPriceTaxed")
+        if price is not None and float(price) > 0:
+            val = round(float(price), 4)
+            print(f"Neste API palautti litrahinnan: {val} €/l (postinumero {postal_code})")
+            return val
     except Exception as e:
-        print(f"Huom: Nesteen selaushaku ei palauttanut suoraa lukua ({e}).")
-
-    if found_price:
-        print(f"Neste 21260 (1000 L) päivän hinta löydetty: {found_price} €/l ({grade_note})")
-    return found_price
+        print(f"Neste API -haku epäonnistui: {e}")
+    return None
 
 
 def update_oil_prices():
@@ -288,7 +210,7 @@ def update_oil_prices():
     else:
         oil_data = {"updated": "2026-10-28", "current_price": 2.01, "monthly": {}, "daily_neste": {}}
 
-    # 1. Päivitetään Tilastokeskuksen kuukausisarja
+    # 1. Tilastokeskuksen kuukausihinnat
     px_url = "https://pxdata.stat.fi/PxWeb/api/v1/fi/StatFin/khi/statfin_khi_pxt_11xx.px"
     try:
         meta = fetch_json(px_url)
@@ -297,10 +219,7 @@ def update_oil_prices():
         comm_var = next(v for v in variables if v["code"] == "Hyödyke")
         info_var = next(v for v in variables if v["code"] == "Tiedot")
 
-        oil_code = next(
-            val for val, txt in zip(comm_var["values"], comm_var["valueTexts"])
-            if "Kevyt polttoöljy" in txt
-        )
+        oil_code = next(val for val, txt in zip(comm_var["values"], comm_var["valueTexts"]) if "Kevyt polttoöljy" in txt)
         months_from_2021 = [m for m in month_var["values"] if m >= "2021M01"]
 
         query_payload = {
@@ -328,12 +247,11 @@ def update_oil_prices():
                 latest_valid_price = round(float(val), 2)
 
         oil_data["monthly"] = monthly_dict
-        oil_data["current_price"] = latest_valid_price
     except Exception as e:
         print(f"Tilastokeskuksen päivitys ohitettiin ({e}).")
 
-    # 2. Pollataan Nesteen päivän hinta (21260, 1000 L, kesälaatu)
-    neste_price = poll_neste_oil_price(postal_code="21260", liters="1000")
+    # 2. Nesteen suora API-haku (21260 / kesälaatu)
+    neste_price = fetch_neste_oil_price(postal_code="21260", product_number="160360")
     today_str = datetime.now(FIN_TZ).strftime("%Y-%m-%d")
     daily_neste = oil_data.get("daily_neste", {})
 
@@ -344,13 +262,12 @@ def update_oil_prices():
         cur_m = datetime.now(FIN_TZ).month - 1
         if cur_y in oil_data.get("monthly", {}):
             oil_data["monthly"][cur_y][cur_m] = round(neste_price, 2)
+        print(f"Päivitetty Nesteen hinta {today_str}: {neste_price} €/l")
     else:
-        # Jos Nesteen sivu ei vastannut, tallennetaan viimeisin tunnettu hinta päivän merkinnäksi
-        if today_str not in daily_neste:
-            daily_neste[today_str] = oil_data.get("current_price", 2.01)
+        print("Huom: Nesteen hintaa ei saatu haettua tänään, ei lisätty virheellistä merkintää.")
 
     oil_data["daily_neste"] = daily_neste
-    oil_data["neste_config"] = {"postal_code": "21260", "volume_l": 1000, "grade": "kesälaatu"}
+    oil_data["neste_config"] = {"postal_code": "21260", "volume_l": 1000, "grade": "kesälaatu (160360)"}
     oil_data["updated"] = today_str
 
     with open(OIL_FILE, "w", encoding="utf-8") as f:
