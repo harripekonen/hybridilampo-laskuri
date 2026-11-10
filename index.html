@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Älykäs Hybridilämpö – Laskuri, Hintaseuranta & Toteutusopas</title>
+    <title>Älykäs Hybridilämpö – Laskuri, Hintaseuranta & Tietopankki</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         :root {
@@ -255,7 +255,6 @@
             font-size: 0.86rem;
             font-weight: 700;
         }
-        /* Tietopankin erikoislaatikot */
         .info-callout {
             background: #fffbeb;
             border: 1px solid #fde68a;
@@ -299,7 +298,7 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="switchTab('calc', this)">📊 Säästölaskuri & Konkretia</button>
             <button class="nav-tab" onclick="switchTab('charts', this)">📈 Hintagraafit & 15 min Zoom</button>
-            <button class="nav-tab" onclick="switchTab('guide', this)">📖 Toteutusopas & Kytkentä</button>
+            <button class="nav-tab" onclick="switchTab('guide', this)">📖 Toteutusopas & Periaate</button>
         </div>
     </div>
 
@@ -346,8 +345,8 @@
                 </select>
 
                 <div id="customOilBox" style="display:none;">
-                    <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">2,01 €/l</span></label>
-                    <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="2.01">
+                    <label>Valittu polttoöljyn hinta (€/l) <span class="val-badge" id="lblOilPrice">1,87 €/l</span></label>
+                    <input type="range" id="customOilPrice" min="1.00" max="2.60" step="0.01" value="1.87">
                 </div>
 
                 <label>Ohjauslogiikka</label>
@@ -416,7 +415,7 @@
                                 <span>Öljypolttimen termostaatti on asetettu ~70 asteeseen ja sähkövastuksen ~80 asteeseen. Kun sähkö on halpaa, vastus pitää kattilan 80 asteessa eikä poltin käynnisty.</span>
                             </div>
                             <div class="ref-item">
-                                <strong>Shelly Pro + 3-vaihekontaktori</strong>
+                                <strong>Shelly + 3-vaihekontaktori</strong>
                                 <span>Shelly ohjaa vain pientä kontaktorin kelaa. Kontaktori kytkee järeän 6 kW 3-vaihevirran ilman Shellyn lämpenemistä.</span>
                             </div>
                             <div class="ref-item">
@@ -506,7 +505,7 @@
         <div class="card">
             <h2>Polttoöljyn hintahistoria (Tilastokeskus & Neste 21260 päiväseuranta, €/l)</h2>
             <p style="margin-top:0; color:var(--muted); font-size:0.92rem;">
-                Tilastokeskuksen kuukausihinnat (2021–2026) sekä GitHub Actionsin päivittäin pollaama Nesteen tilaushinta (postinumero 21260, 1 000 L erä, kesälaatu).
+                Tilastokeskuksen kuukausihinnat (2021–2026) sekä GitHub Actionsin suoraan Nesteen rajapinnasta päivittäin noutama tilaushinta (postinumero 21260, 1 000 L, kesälaatu).
             </p>
             <div id="oilChartContainer" style="width: 100%; height: 340px;"></div>
         </div>
@@ -517,7 +516,7 @@
         <div class="card">
             <h2>Toteutusopas: Öljykattilan älykäs sähköohjaus</h2>
             <p style="color:var(--muted); font-size:0.95rem; margin-top:0;">
-                Käytännönläheinen ohjeistus omakotiasujalle ja sähköasentajalle: miten olemassa oleva öljykattila valjastetaan pörssisähkölle ilman kalliita remontteja.
+                Käytännönläheinen toimintaperiaate omakotiasujalle: miten olemassa oleva öljykattila valjastetaan pörssisähkölle ilman kalliita remontteja.
             </p>
 
             <div class="info-callout">
@@ -525,7 +524,7 @@
             </div>
 
             <h3>1. Komponentit & Kustannusarvio (~270 €)</h3>
-            <p>Lähes kaikissa suomalaisissa öljykattiloissa (esim. Jäspi, Arimax, Högfors) on tehtaalta valmiina 6 kW (tai 9 kW) sähkövastuslaippa. Järjestelmää varten tarvitaan vain seuraavat lisälaitteet:</p>
+            <p>Lähes kaikissa suomalaisissa öljykattiloissa (esim. Jäspi, Arimax, Högfors) on tehtaalta valmiina 6 kW (tai 9 kW) sähkövastuslaippa. Järjestelmää varten tarvitaan vain seuraavat peruslaitteet:</p>
 
             <table class="data-table">
                 <thead>
@@ -597,31 +596,14 @@
                 </div>
             </div>
 
-            <h3>3. Kytkentäarkkitehtuuri: Päävirtapiiri vs. Ohjauspiiri</h3>
+            <h3>3. Päävirtapiiri vs. Ohjauspiiri (Miksi kontaktori tarvitaan?)</h3>
             <p>
-                Älä koskaan kytke 6 kW sähkövastusta suoraan älyreleen läpi. Vaikka releen kyljessä lukisi 16 A, 3-vaiheisen jatkuvan kuorman kytkeminen kuumentaa pientä moduulia. Kontaktorilla tehty kytkentä jakaa työn kahteen selkeään osaan:
+                Älä koskaan kytke 6 kW sähkövastusta suoraan älyreleen läpi. Vaikka releen kyljessä lukisi 16 A, 3-vaiheisen jatkuvan kuorman kytkeminen kuumentaa pientä moduulia.
             </p>
-
-            <div class="ref-grid" style="margin-top:14px;">
-                <div class="ref-item" style="border-left:4px solid #8b5cf6;">
-                    <strong style="color:#6d28d9;">1. Päävirtapiiri (400 V 3-vaihe)</strong>
-                    <span style="font-size:0.88rem; color:#334155;">
-                        • Ryhmäkeskuksen 3x16A johdonsuojalta tuodaan L1, L2 ja L3 kontaktorin yläliittimiin (1, 3, 5).<br>
-                        • Kontaktorin alaliittimiltä (2, 4, 6) viedään 3-vaihesyöttö kattilan sähkövastukselle.<br>
-                        • Nolla (N) ja suojamaa (PE) kytketään suoraan vastukselle.
-                    </span>
-                </div>
-                <div class="ref-item" style="border-left:4px solid #e67e22;">
-                    <strong style="color:#c2410c;">2. Ohjauspiiri (230 V 1-vaihe)</strong>
-                    <span style="font-size:0.88rem; color:#334155;">
-                        • Suojataan erillisellä 6A/10A sulakkeella.<br>
-                        • Vaihe L viedään Shellyn syöttöön ja releen tuloon (I1).<br>
-                        • Shellyn relelähtö (O1) viedään kontaktorin kelaliittimeen A1.<br>
-                        • Nollajohdin N viedään kontaktorin kelaliittimeen A2 ja Shellyn N-liittimeen.<br>
-                        • <em>Kuorma Shellyn releelle on vain kelan ~3 wattia!</em>
-                    </span>
-                </div>
-            </div>
+            <ul>
+                <li><strong>Ohjauspiiri (Shelly):</strong> Shelly kytkee vain kontaktorin pienen ohjauskelan (muutama watti tehoa). Rele pääsee olemattomalla rasituksella ja kestää vuosikymmeniä.</li>
+                <li><strong>Päävirtapiiri (Kontaktori):</strong> Järeä 3-vaihekontaktori ottaa vastaan Shellyn käskyn ja kytkee kaikki kolme vaihetta samanaikaisesti vastukselle. Yksi ohjauskanava riittää ohjaamaan koko 6 kW tehoa.</li>
+            </ul>
 
             <h3>4. Huoltovarmuus: 12 tunnin lämmitysturva ~160 Wh/h teholla</h3>
             <p>
@@ -642,15 +624,15 @@
 
 <script>
 let oilData = {
-    "updated": "2026-10-28",
-    "current_price": 2.01,
+    "updated": "2026-11-10",
+    "current_price": 1.87,
     "monthly": {
         "2021": [0.86, 0.92, 0.96, 0.93, 0.97, 0.99, 1.01, 1.01, 1.03, 1.14, 1.15, 1.11],
         "2022": [1.18, 1.29, 2.06, 1.59, 1.74, 1.95, 1.78, 1.62, 1.73, 1.93, 1.80, 1.44],
         "2023": [1.55, 1.45, 1.45, 1.40, 1.28, 1.33, 1.35, 1.51, 1.59, 1.54, 1.48, 1.41],
         "2024": [1.37, 1.49, 1.44, 1.47, 1.37, 1.33, 1.40, 1.32, 1.27, 1.32, 1.32, 1.29],
         "2025": [1.33, 1.32, 1.26, 1.18, 1.15, 1.17, 1.28, 1.22, 1.23, 1.20, 1.30, 1.22],
-        "2026": [1.21, 1.27, 1.79, 2.03, 1.77, 1.67, 1.63, 1.78, 2.02, 2.01, 2.01, 2.01]
+        "2026": [1.21, 1.27, 1.79, 2.03, 1.77, 1.67, 1.63, 1.78, 1.87, 1.87, 1.87, 1.87]
     },
     "daily_neste": {}
 };
@@ -717,11 +699,12 @@ function evalBinnedMonth(mEntry, thresh) {
 async function initData() {
     runSimulation();
     const badge = document.getElementById('dataStatusBadge');
+    const nocache = '?t=' + Date.now();
     try {
         const [oilRes, spotRes, q15Res] = await Promise.allSettled([
-            fetch('oljy_hinnat.json'),
-            fetch('spot_tuntihinnat.json'),
-            fetch('spot_15min.json')
+            fetch('oljy_hinnat.json' + nocache),
+            fetch('spot_tuntihinnat.json' + nocache),
+            fetch('spot_15min.json' + nocache)
         ]);
         if (oilRes.status === 'fulfilled' && oilRes.value.ok) {
             oilData = await oilRes.value.json();
@@ -747,7 +730,7 @@ async function initData() {
             renderCharts();
         }
     } catch (err) {
-        // Fallback data in use
+        // Fallback in use
     }
 }
 
@@ -759,16 +742,16 @@ function getOilPriceForDate(dt) {
         return oilData.daily_neste[dStr];
     }
     if (oilData.monthly && oilData.monthly[yStr]) {
-        return oilData.monthly[yStr][mIdx] || oilData.current_price || 2.01;
+        return oilData.monthly[yStr][mIdx] || oilData.current_price || 1.87;
     }
-    return oilData.current_price || 2.01;
+    return oilData.current_price || 1.87;
 }
 
 function runSimulation() {
     const qOil = parseFloat(document.getElementById('annualLiters').value) || 2200;
     const scale = parseInt(document.getElementById('homeScale').value) || 1;
     const oilMode = document.getElementById('oilMode').value;
-    const customOil = parseFloat(document.getElementById('customOilPrice').value) || 2.01;
+    const customOil = parseFloat(document.getElementById('customOilPrice').value) || 1.87;
     const controlMode = document.getElementById('controlMode').value;
     const fixedThresh = parseFloat(document.getElementById('fixedThreshold').value) || 10.0;
     const pAdd = parseFloat(document.getElementById('elecExtras').value) || 8.68;
@@ -782,7 +765,7 @@ function runSimulation() {
     document.getElementById('customOilBox').style.display = oilMode === 'current' ? 'block' : 'none';
     document.getElementById('fixedThresholdBox').style.display = controlMode === 'dynamic' ? 'none' : 'block';
 
-    const currentOilRef = oilMode === 'current' ? customOil : (oilData.current_price || 2.01);
+    const currentOilRef = oilMode === 'current' ? customOil : (oilData.current_price || 1.87);
     const currentOilKwhCents = (currentOilRef * 100) / (10 * eff);
     const currentBreakEvenSpot = currentOilKwhCents - pAdd;
 
@@ -1085,10 +1068,14 @@ function applyRangeDaysToZoom(days) {
         currentZoomStart = 0;
         currentZoomEnd = 100;
     } else {
-        const totalDays = Math.max(1, (fullTimelineBounds.maxMs - fullTimelineBounds.minMs) / 86400000);
-        const pct = Math.min(100, (days / totalDays) * 100);
-        currentZoomStart = Math.max(0, 100 - pct);
-        currentZoomEnd = 100;
+        const nowMs = Date.now();
+        const endMs = Math.min(fullTimelineBounds.maxMs, nowMs + 86400000);
+        const startMs = endMs - (days * 86400000);
+        const totalSpan = fullTimelineBounds.maxMs - fullTimelineBounds.minMs;
+        if (totalSpan > 0) {
+            currentZoomStart = Math.max(0, Math.min(100, ((startMs - fullTimelineBounds.minMs) / totalSpan) * 100));
+            currentZoomEnd = Math.max(0, Math.min(100, ((endMs - fullTimelineBounds.minMs) / totalSpan) * 100));
+        }
     }
 }
 
