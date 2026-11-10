@@ -1210,38 +1210,80 @@ function renderOilHistoryChart() {
     if (!oilChart) {
         oilChart = echarts.init(document.getElementById('oilChartContainer'));
     }
-    const labels = [];
-    const prices = [];
+
+    // 1. Tilastokeskuksen kuukausipisteet aikaleimoina [aika, hinta]
+    const statData = [];
     for (let y = 2021; y <= 2026; y++) {
         const arr = oilData.monthly[String(y)];
         if (!arr) continue;
         for (let m = 0; m < 12; m++) {
-            if (y === 2026 && m > 9) continue;
-            labels.push(`${y}-${String(m + 1).padStart(2, '0')}`);
-            prices.push(arr[m]);
+            if (y === 2026 && m > 9) continue; // Ei piirretä tulevia kuukausia
+            // Kuukauden 15. päivä edustamaan kuukauden keskiarvoa
+            const dtStr = `${y}-${String(m + 1).padStart(2, '0')}-15`;
+            statData.push([dtStr, arr[m]]);
         }
     }
+
+    // 2. Nesteen päiväseuranta (Raisio 21260)
+    const nesteData = [];
     if (oilData.daily_neste) {
-        for (const [dStr, val] of Object.entries(oilData.daily_neste)) {
-            labels.push(`${dStr} (Neste 21260)`);
-            prices.push(val);
+        // Järjestetään päivämäärän mukaan
+        const sortedDates = Object.keys(oilData.daily_neste).sort();
+        for (const dStr of sortedDates) {
+            nesteData.push([dStr, oilData.daily_neste[dStr]]);
         }
     }
+
     oilChart.setOption({
-        tooltip: { trigger: 'axis', formatter: '{b}: <strong>{c} €/l</strong>' },
-        grid: { left: 55, right: 30, top: 20, bottom: 40 },
-        xAxis: { type: 'category', data: labels },
-        yAxis: { type: 'value', name: '€ / litra', min: 0.7 },
-        series: [{
-            name: 'Polttoöljy (€/l)',
-            type: 'line',
-            data: prices,
-            smooth: true,
-            areaStyle: { color: 'rgba(230, 126, 34, 0.15)' },
-            lineStyle: { width: 3, color: '#e67e22' },
-            itemStyle: { color: '#e67e22' }
-        }]
-    });
+        tooltip: {
+            trigger: 'axis',
+            formatter: function (params) {
+                let html = `<strong>${params[0].value[0]}</strong><br/>`;
+                params.forEach(p => {
+                    html += `${p.marker} ${p.seriesName}: <strong>${Number(p.value[1]).toFixed(4)} €/l</strong><br/>`;
+                });
+                return html;
+            }
+        },
+        legend: {
+            data: ['Tilastokeskus (Koko maa, kk-keskiarvo)', 'Neste 21260 (Raisio, päivähinta)'],
+            top: 0
+        },
+        grid: { left: 55, right: 30, top: 35, bottom: 40 },
+        xAxis: {
+            type: 'time',
+            axisLabel: {
+                formatter: '{yyyy}-{MM}'
+            }
+        },
+        yAxis: {
+            type: 'value',
+            name: '€ / litra',
+            min: 0.7,
+            axisLabel: { formatter: '{value} €' }
+        },
+        series: [
+            {
+                name: 'Tilastokeskus (Koko maa, kk-keskiarvo)',
+                type: 'line',
+                data: statData,
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { width: 2.5, color: '#64748b' },
+                itemStyle: { color: '#64748b' }
+            },
+            {
+                name: 'Neste 21260 (Raisio, päivähinta)',
+                type: 'line',
+                data: nesteData,
+                smooth: false,
+                showSymbol: true,
+                symbolSize: 8,
+                lineStyle: { width: 3, color: '#e67e22' },
+                itemStyle: { color: '#e67e22' }
+            }
+        ]
+    }, true);
 }
 
 function setChartRange(days, btn) {
