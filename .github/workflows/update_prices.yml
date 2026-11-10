@@ -1,8 +1,8 @@
-name: Päivitä sähkön (15min/1h) ja Nesteen polttoöljyn hinnat
+name: Päivitä sähkön ja Nesteen polttoöljyn hinnat
 
 on:
   schedule:
-    # Ajetaan päivittäin klo 12:15 UTC (klo 15:15 EEST kesäaikaan) ja 13:15 UTC (klo 15:15 EET talviaikaan)
+    # Ajetaan klo 12:15 UTC ja 13:15 UTC (klo 15:15 Suomen aikaa)
     - cron: '15 12,13 * * *'
   workflow_dispatch:
 
@@ -21,11 +21,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Playwright for Neste oil price polling
-        run: |
-          pip install playwright
-          playwright install --with-deps chromium
-
       - name: Run price update script
         run: python paivita_hinnat.py
 
@@ -34,5 +29,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add spot_tuntihinnat.json spot_15min.json oljy_hinnat.json
-          git diff --staged --quiet || git commit -m "Auto-update spot (15m/1h) & Neste 21260 oil prices"
+          git diff --staged --quiet || git commit -m "Auto-update spot & Neste 21260 oil prices"
           git push
