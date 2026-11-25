@@ -2,7 +2,7 @@
   "updated": "2026-11-25",
   "source": "Tilastokeskus (Kuluttajahintaindeksi, Kevyt polttoöljy 1 l, taulukko 11xx) + lokakuu 2026 markkinahinta",
   "unit": "EUR/l (sis. ALV)",
-  "current_price": 1.7677,
+  "current_price": 1.7301,
   "yearly_averages": {
     "2021": 1.01,
     "2022": 1.68,
@@ -110,7 +110,8 @@
     "2026-11-20": 1.7929,
     "2026-11-21": 1.7895,
     "2026-11-22": 1.7895,
-    "2026-11-24": 1.7677
+    "2026-11-24": 1.7677,
+    "2026-11-25": 1.7301
   },
   "neste_config": {
     "postal_code": "21260",
